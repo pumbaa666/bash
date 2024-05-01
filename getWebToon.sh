@@ -18,6 +18,6 @@ getWebToon()
     done
 }
 
-# 1850088 - The Dreamest Girl
-getWebToon 1850088
+# 1950099 - The WebToon
+getWebToon 1950099
 echo "Done"
