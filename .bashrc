@@ -138,7 +138,7 @@ alias l='ls -alh'
 alias lg='ls -alh | grep -i $1'
 # show directory size recursively.
 # Source : http://www.linuxquestions.org/questions/linux-general-1/cmdline-howto-know-size-of-folder-recursive-569884/
-alias lx='for folder in $(ls -A) ; do du -hs "$folder" ; done ; du -hs'
+alias lx='for folder in $(ls -A) ; do du -hs "$folder" 2> /dev/null ; done ; du -hs 2> /dev/null'
 alias vscode='code'
 alias kb-enable='~/programmation/perso/bash/enable_keyboard.sh'
 alias kb-disable='~/programmation/perso/bash/disable_keyboard.sh'
@@ -196,6 +196,8 @@ myHelp()
     echo -e ""
     
     echo -e "${GREEN}# Files and pictures${RESET}"
+    
+    echo -e "${BOLD_YELLOW}countFiles(${YELLOW}${ITALIC}path${BOLD_YELLOW})${RESET}\t\tRecursively count the number of regular files in a folder"
     echo -e "${BOLD_YELLOW}mygrep(${YELLOW}${ITALIC}search_patern${BOLD_YELLOW})${RESET}\t\tPretty grep"
     echo -e "${BOLD_YELLOW}chownwww(${YELLOW}${ITALIC}path${BOLD_YELLOW})${RESET}\t\t\tApplies www-data user and group to a file or directory, recursively"
 
@@ -525,6 +527,57 @@ sqlite3_export_db() {
         echo "Error while exporting database '$file'."
         return 1
     fi
+}
+
+countFiles() {
+# alias lx='for folder in $(ls -A) ; do du -hs "$folder" ; done ; du -hs'
+
+    SHOW_DETAIL="false"
+    DIR_PATH=""
+
+    # Parse command-line arguments
+    while [[ "$#" -gt 0 ]]; do
+        case $1 in
+            -d|--detail)        SHOW_DETAIL="true";;
+            -*)                 echo "Unknown parameter $1";;
+            *)                  DIR_PATH=$1;;
+        esac
+        shift
+    done
+
+    # Check directory path existence
+    if [[ -z "${DIR_PATH}" ]]; then
+        echo "Usage: countFiles [OPTIONS] <directory_path>"
+        echo "  Options : "
+        echo "    -d,--detail   Show file count for each subfolders in addition to total"
+        return 1
+    fi
+
+    if [[ ! -d "${DIR_PATH}" ]]; then
+        echo "Error: '${DIR_PATH}' is not a valid directory."
+        return 1
+    fi
+
+    # Recursively show countFile for subfolders
+    if [[ "${SHOW_DETAIL}" == "true" ]]; then
+        echo "Number of files in subfolders of ${DIR_PATH} : "
+        total=0
+        for dir in "${DIR_PATH}"/*; do
+            if [[ ! -d "${dir}" ]]; then continue; fi
+            count=$(countFiles "${dir}")
+            echo "${dir} : ${count}"
+            total=$((total + count))
+        done
+        
+        echo "Sum of subfolders: ${total}"
+        #return 0
+    fi
+
+    # TODO compter le nombre de fichiers uniquement à la racine de $1 et l'ajouter au $total et décommenter le return 0
+    # printf "Total files in %s: \n" "$DIR_PATH"
+    TOTAL=$(find "$DIR_PATH" -type f | wc -l)
+    echo $TOTAL
+    return $TOTAL
 
 }
 
