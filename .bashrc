@@ -136,9 +136,7 @@ fortune -a | cowsay -f $(shuf -n1 -e hellokitty default tux moose)
 
 alias l='ls -alh'
 alias lg='ls -alh | grep -i $1'
-# show directory size recursively.
-# Source : http://www.linuxquestions.org/questions/linux-general-1/cmdline-howto-know-size-of-folder-recursive-569884/
-alias lx='for folder in $(ls -A) ; do du -hs "$folder" 2> /dev/null ; done ; du -hs 2> /dev/null'
+alias lx='folderSize'
 alias vscode='code'
 alias kb-enable='~/programmation/perso/bash/enable_keyboard.sh'
 alias kb-disable='~/programmation/perso/bash/disable_keyboard.sh'
@@ -189,7 +187,7 @@ myHelp()
     echo -e "${GREEN}# Aliases${RESET}"
     echo -e "${CYAN}l${RESET} ${ITALIC}ls -alh${RESET}\t\t\tPrints files list with human readable sizes"
     echo -e "${CYAN}lg${RESET} ${ITALIC}ls -alh | grep -i \$1${RESET}\t\tSearch a filename in the current directory"
-    echo -e "${CYAN}lx${RESET}${ITALIC}${RESET}\t\t\t\tShows directory size recursively"
+    echo -e "${CYAN}lx${RESET} ${ITALIC}folderSize${RESET}\t\t\tShows directory size recursively"
     echo -e "${CYAN}code${RESET} ${ITALIC}vscode${RESET}\t\t\tLaunch Microsoft VSCode, code editor"
     echo -e "${CYAN}kb-enable${RESET} ${ITALIC}enable_keyboard.sh${RESET}\tEnable the built-in (laptop) keyboard"
     echo -e "${CYAN}kb-disable${RESET} ${ITALIC}disable_keyboard.sh${RESET}\tDisable the built-in (laptop) keyboard"
@@ -197,6 +195,7 @@ myHelp()
     
     echo -e "${GREEN}# Files and pictures${RESET}"
     
+    echo -e "${BOLD_YELLOW}folderSize(${YELLOW}${ITALIC}path${BOLD_YELLOW})${RESET}\t\tRecursively show the size of a folder and its subfolders"
     echo -e "${BOLD_YELLOW}countFiles(${YELLOW}${ITALIC}path${BOLD_YELLOW})${RESET}\t\tRecursively count the number of regular files in a folder"
     echo -e "${BOLD_YELLOW}mygrep(${YELLOW}${ITALIC}search_patern${BOLD_YELLOW})${RESET}\t\tPretty grep"
     echo -e "${BOLD_YELLOW}chownwww(${YELLOW}${ITALIC}path${BOLD_YELLOW})${RESET}\t\t\tApplies www-data user and group to a file or directory, recursively"
@@ -204,7 +203,7 @@ myHelp()
     echo -e "${BOLD_YELLOW}createFileDate(${YELLOW}${ITALIC}name, ext${BOLD_YELLOW})${RESET}\tCreates an empty file with the current date and time in its name"
     echo -e "${BOLD_YELLOW}backupFileDate(${YELLOW}${ITALIC}name${BOLD_YELLOW})${RESET}\t\tBacks up a file, optionally with a timestamp"
     echo -e "${BOLD_YELLOW}renameFiles(${YELLOW}${ITALIC}path,search,replace${BOLD_YELLOW})${RESET}Renames all files in the specified directory"
-    echo -e "${BOLD_YELLOW}resizePicture(${YELLOW}${ITALIC}path, size${BOLD_YELLOW})${RESET}\tResizes all images in a directory"
+    echo -e "${BOLD_YELLOW}resizePictures(${YELLOW}${ITALIC}path, size${BOLD_YELLOW})${RESET}\tResizes all images in a directory"
     echo -e "${BOLD_YELLOW}searchWord(${YELLOW}${ITALIC}word, (path)${BOLD_YELLOW})${RESET}\tShows files where the word appears"
     echo -e ""
 
@@ -215,12 +214,16 @@ myHelp()
     echo -e "\t${BOLD_YELLOW}dclogs(${YELLOW}${ITALIC}container_name${BOLD_YELLOW})${RESET}"
     echo -e ""
     
-    echo -e "${GREEN}# Perso${RESET}"
-    echo -e "${BOLD_YELLOW}mountNetworkShares${RESET}\t\tMount network folders (Commun)"
+    echo -e "${GREEN}# Users${RESET}"
     echo -e "${BOLD_YELLOW}prettyPrintUsers${RESET}\t\tPrints the OS users in a nice array"
-    echo -e "${BOLD_YELLOW}clearBoot${RESET}\t\t\tRemove all old kernels except the current one"
+    echo -e "${BOLD_YELLOW}allCrontabs${RESET}\t\t\tPrint the crontab of each user on this machine"
     echo -e ""
     
+    echo -e "${GREEN}# Perso${RESET}"
+    echo -e "${BOLD_YELLOW}mountNetworkShares${RESET}\t\tMount network folders (Commun)"
+    echo -e "${BOLD_YELLOW}clearBoot${RESET}\t\t\tRemove all old kernels except the current one"
+    echo -e ""
+
     echo -e "${GREEN}# Help${RESET}"
     echo -e "Custom ${BOLD_BLUE}docker${RESET} config in ${ITALIC}~/.docker/config.json${RESET}"
     echo -e "Custom ${BOLD_BLUE}sshrc${RESET} config in ${ITALIC}~/.sshrc${RESET} to copy the local .bashrc to any distant machine with ssh"
@@ -247,14 +250,48 @@ chownwww()
 # source : http://doc.ubuntu-fr.org/alias
 mygrep()
 {
-	grep -Rins --color -A 5 -B 5 $1 .
+    local word="$1"
+    local path="${2:-.}"  # If not path is provided, use current folder
+	grep -Rins --color -A 5 -B 5 $word $path
+}
+
+# Show the size of a folder and its subfolders
+#
+# Arguments:
+#   $1 - Path to the folder to analyze. If not provided, defaults to the current directory.
+#   $2 - Optional: File or file descriptor where error messages should be redirected.
+#        Defaults to /dev/null (i.e., errors are suppressed).
+#
+# Behavior:
+#   - Lists immediate children of the specified folder and displays their sizes.
+#   - Handles folder names with spaces and special characters safely.
+#   - Suppresses or redirects errors (e.g., permission denied) as specified.
+#
+# Usage:
+#   folderSize                      # Show size of the current folder and subfolder
+#   folderSize PATH                 # Show size of PATH folder and subfolder
+#   folderSize PATH /dev/stderr     # Show size of PATH folder and subfolder and print errors
+#
+# Originaly written as a simple alias
+#   alias lx='for folder in $(ls -A) ; do du -hs "$folder" ; done ; du -hs'
+# Source : http://www.linuxquestions.org/questions/linux-general-1/cmdline-howto-know-size-of-folder-recursive-569884/
+folderSize() {
+    local path="${1:-.}"  # Default to current directory if no path is provided
+    local err_output="${2:-/dev/null}"  # Error output. Default to /dev/null to get rid of unwanted message
+
+    # Use "find" instead of "ls" for safer and recursive file handling
+    while IFS= read -r -d '' folder; do
+        du -hs "$folder" 2>>"$err_output"
+    done < <(find "$path" -mindepth 1 -maxdepth 1 -print0)
+
+    du -hs "$path" 2>>"$err_output"
 }
 
 # Backs up a file, optionally with a timestamp.
 #
 # Arguments:
-#   1. $1 - File to back up. If the file doesn't exist, an error is shown.
-#   2. $2 - Optional: "-d" or "--date" to append a timestamp (format: YYYY.MM.DD-HH-MM-SS).
+#   $1 - File to back up. If the file doesn't exist, an error is shown.
+#   $2 - Optional: "-d" or "--date" to append a timestamp (format: YYYY.MM.DD-HH-MM-SS).
 #
 # Behavior:
 #   - If the file exists, it creates a backup with or without a timestamp.
@@ -263,17 +300,17 @@ backupFileDate()
 {
     file="$1"
 
-    if [ ! -f "$file" ]; then
-        echo "Erreur: Le fichier $file n'existe pas"
+    if [ ! -f "${file}" ]; then
+        echo "Erreur: Le fichier ${file} n'existe pas"
     else
         if [[ "$2" == "-d" || "$2" == "--date" ]]; then
-            backup="$file.bkp-$(date +"%Y.%m.%d-%H-%M-%S")"
+            backup="${file}.bkp-$(date +"%Y.%m.%d-%H-%M-%S")"
         else
-            backup="$file.bkp"
+            backup="${file}.bkp"
         fi
         
-        echo -e "Backing up $file to $backup"
-        cp --archive "$file" "$backup"
+        echo -e "Backing up ${file} to ${backup}"
+        cp --archive "${file}" "${backup}"
     fi
 }
 
@@ -283,15 +320,16 @@ backupFileDate()
 #   - [path]: (optional) Directory to search in (default: current directory).
 searchWord() {
     local word="$1"
-    local path="${2:-.}"  # Si aucun chemin n'est donné, utiliser le dossier courant
-    grep -rl "$word" "$path"
+    local path="${2:-.}"  # If not path is provided, use current folder
+    grep -rl "$word" "$path" 2>/dev/null
 }
 
 # Creates an empty file with the current date and time in its name.
-#tM
+#
 # Parameters:
-#   <filename>   Base name of the file (without extension).
-#   <extension>  Extension of the file.
+#   <filename>     Base name of the file (without extension).
+#   <extension>    Extension of the file.
+#   <date format>  Optional. Format of the date (Default: %F_%T)
 #
 # Usage:
 #   createFileDate <filename> <extension>
@@ -302,11 +340,12 @@ searchWord() {
 createFileDate() {
     filename="$1"
     extension="$2"
+    date_format=${3:-%F_%T}
     
     if [ -z "$filename" ] || [ -z "$extension" ]; then
         echo "Usage: createFileDate <filename> <extension>"
     else
-        timestamped_file="${filename}_$(date +%F_%T).${extension}"
+        timestamped_file="${filename}_$(date +${date_format}).${extension}"
         echo "Creating file: $timestamped_file"
         touch "$timestamped_file"
     fi
@@ -378,15 +417,24 @@ prettyPrintUsers()
 #   Resizes all .jpg, .jpeg, and .png images in the ./images directory to 1024x768.
 resizePictures()
 {
-    path=${1:-.}
-    size=${2:-800x600}
+    local path=${1:-.}
+    local size=${2:-800x600}
     
-    echo -e "Images found in \"$path\" : " $(ls -1 $path/*.jpg $path/*.png $path/*.jpeg 2>/dev/null | wc -l)
-    for img in $path/*.{jpg,jpeg,png}; do convert "$img" -resize $size "$img" & echo "$img resized"; done
+    echo -e "Images found in \"${path}\" : " $(ls -1 ${path}/*.{jpg,jpeg,png} 2>/dev/null | wc -l)
+    for img in ${path}/*.{jpg,jpeg,png}; do
+        if [[ -f "${img}" ]] ; then
+            convert "${img}" -resize $size "${img}" & echo "${img} resized"
+        fi
+    done
     
-    nautilus $path &
+    if [[ -d ${path} ]] ; then
+        nautilus ${path} &
+    else
+        echo "${path} is not a directory"
+    fi
 }
 
+# Print the crontab of each user on this machine
 allCrontabs()
 {
     for user in $(cut -f1 -d: /etc/passwd); do
