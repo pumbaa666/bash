@@ -138,8 +138,8 @@ alias l='ls -alh'
 alias lg='ls -alh | grep -i $1'
 alias lx='folderSize'
 alias vscode='code'
-alias kb-enable='~/programmation/perso/bash/enable_keyboard.sh'
-alias kb-disable='~/programmation/perso/bash/disable_keyboard.sh'
+alias kb-enable='~/programmation/perso/bash/toggle_keyboard.sh --enable'
+alias kb-disable='~/programmation/perso/bash/toggle_keyboard.sh --disable'
 alias flipper='/opt/flipper-zero/AppRun'
 
 myHelp()
