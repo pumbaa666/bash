@@ -287,31 +287,60 @@ folderSize() {
     du -hs "$path" 2>>"$err_output"
 }
 
-# Backs up a file, optionally with a timestamp.
-#
-# Arguments:
-#   $1 - File to back up. If the file doesn't exist, an error is shown.
-#   $2 - Optional: "-d" or "--date" to append a timestamp (format: YYYY.MM.DD-HH-MM-SS).
-#
-# Behavior:
-#   - If the file exists, it creates a backup with or without a timestamp.
-#   - Uses "cp --archive" to preserve file attributes.
 backupFileDate()
 {
-    file="$1"
+    local filename=""
+    local extension=".bkp"
+    local append_date="false"
+    local date_format="%Y.%m.%d-%H-%M-%S"
+    local separator="-"
 
-    if [ ! -f "${file}" ]; then
-        echo "Erreur: Le fichier ${file} n'existe pas"
-    else
-        if [[ "$2" == "-d" || "$2" == "--date" ]]; then
-            backup="${file}.bkp-$(date +"%Y.%m.%d-%H-%M-%S")"
-        else
-            backup="${file}.bkp"
-        fi
-        
-        echo -e "Backing up ${file} to ${backup}"
-        cp --archive "${file}" "${backup}"
+    # Parse named parameters
+    while [[ "$#" -gt 0 ]]; do
+        case "$1" in
+            -e=*|--extension=*)       extension="${1#*=}" ;;
+            -d|--date)                append_date="true" ;;
+            -df=*|--date-format=*)    date_format="${1#*=}"; append_date="true" ;;
+            -s=*|--separator=*)       separator="${1#*=}" ;;
+            -h|--help)
+                echo "Usage: backupFileDate <filename> OPTIONS"
+                echo " Backs up a file, optionally with a timestamp."
+                echo ""
+                echo " Parameters:"
+                echo "   <filename>     Base name of the file (without extension)."
+                echo " Options:"
+                echo "   -e, --extension=STRING      Extension of the file. Default: .bkp"
+                echo "   -d, --date                  Append the date in the backup file name"
+                echo "   -df, --date-format=STRING   Format of the date. Automatically enables --date (Default: %Y.%m.%d-%H-%M-%S)"
+                echo "   -s, --separator=STRING      Separator between filename and date. Only when using --date. Default: hyphen \"-\""
+                echo ""
+                echo " Example:"
+                echo "   backupFileDate myfile.txt --date               Copy the file \"myfile.txt\" into \"myfile.txt.bkp\"-YYYY-MM-DD-HH-MM-SS"
+                echo "   backupFileDate myfile.txt --extension=new      Copy the file \"myfile.txt\" into \"myfile.txt.new\""
+                echo "   backupFileDate myfile.txt --date-format=%s     Creates a file named myfile.txt.bkp-123456789"
+                return 0 ;;
+            *) filename="$1" ;;
+        esac
+        shift
+    done
+
+    if [[ ! -f "${filename}" ]]; then
+        echo "Error: File ${filename} doesn't exists"
+        return 1
     fi
+    
+    if [[ ! -z "${extension}" && "${extension:0:1}" != "." ]] ; then
+        extension=".${extension}"
+    fi
+
+    local date=""
+    if [[ "${append_date}" == "true" ]]; then
+        date="${separator}$(date +${date_format})"
+    fi
+    backup="${filename}${extension}$date"
+    
+    echo -e "Backing up ${filename} to ${backup}"
+    cp --archive "${filename}" "${backup}"
 }
 
 # search_word: Recursively find files containing a specific word.
@@ -324,57 +353,107 @@ searchWord() {
     grep -rl "$word" "$path" 2>/dev/null
 }
 
-# Creates an empty file with the current date and time in its name.
-#
-# Parameters:
-#   <filename>     Base name of the file (without extension).
-#   <extension>    Extension of the file.
-#   <date format>  Optional. Format of the date (Default: %F_%T)
-#
-# Usage:
-#   createFileDate <filename> <extension>
-#
-# Example:
-#   createFileDate myfile txt
-#   Creates a file named myfile_YYYY-MM-DD_HH:MM:SS.txt
 createFileDate() {
-    filename="$1"
-    extension="$2"
-    date_format=${3:-%F_%T}
+    filename=""
+    extension=""
+    date_format="%F_%T"
+    separator="_"
+
+    # Parse named parameters
+    while [[ "$#" -gt 0 ]]; do
+        case "$1" in
+            -e=*|--extension=*)       extension="${1#*=}" ;;
+            -df=*|--date-format=*)    date_format="${1#*=}" ;;
+            -s=*|--separator=*)       separator="${1#*=}" ;;
+            -h|--help)
+                echo "Usage: createFileDate <filename> OPTIONS"
+                echo " Creates an empty file with the current date and time in its name."
+                echo ""
+                echo " Parameters:"
+                echo "   <filename>     Base name of the file (without extension)."
+                echo " Options:"
+                echo "   -e, --extension=STRING      Extension of the file. Default: none"
+                echo "   -df, --date-format=STRING   Format of the date (Default: %F_%T)"
+                echo "   -s, --separator=STRING      Separator between filename and date. Default: _"
+                echo ""
+                echo " Example:"
+                echo "   createFileDate myfile --extension=txt      Creates a file named myfile_YYYY-MM-DD_HH:MM:SS.txt"
+                echo "   createFileDate myfile --date-format=%s     Creates a file named myfile_123456789"
+                echo "       "
+                return 0 ;;
+            *) filename="$1" ;;
+        esac
+        shift
+    done
     
-    if [ -z "$filename" ] || [ -z "$extension" ]; then
-        echo "Usage: createFileDate <filename> <extension>"
-    else
-        timestamped_file="${filename}_$(date +${date_format}).${extension}"
-        echo "Creating file: $timestamped_file"
-        touch "$timestamped_file"
+    if [[ -z "$filename" ]]; then
+        echo "File name cannot be empty."
+        echo "Usage: createFileDate <filename> OPTIONS)"
+        echo "run with --help to see all options"
+        return 1
     fi
+
+    if [[ ! -z "${extension}" && "${extension:0:1}" != "." ]] ; then
+        extension=".${extension}"
+    fi
+
+    timestamped_file="${filename}${separator}$(date +${date_format})${extension}"
+    echo "Creating file: $timestamped_file"
+    touch "$timestamped_file"
 }
 
-# This function renames all files in the specified directory
-# by replacing a string with another (default replace spaces with hyphens)
-#
-# Parameters:
-#   $1 - The path to the directory containing the files to be renamed.
-#   $2 - The string to search for in file names (optional, default is a space " ").
-#   $3 - The string to replace the search string with (optional, default is a hyphen "-").
-#
-# Example:
-#   renameFiles "/home/user/documents"  # Replaces spaces with hyphens in file names
-#   renameFiles "/home/user/documents" "_" "+"  # Replaces underscores with plus signs
 renameFiles()
 {
-    path=$1
-    search="${2:- }"
-    replace="${3:--}"
+    path="."
+    search=" "
+    replace="-"
+    verbose="false"
+
+    # Parse named parameters
+    while [[ "$#" -gt 0 ]]; do
+        case "$1" in
+            --path=*)      path="${1#*=}" ;;
+            --search=*)    search="${1#*=}" ;;
+            --replace=*)   replace="${1#*=}" ;;
+            -v|--verbose)  verbose="true" ;;
+            -h|--help)
+                echo "Usage: renameFiles OPTIONS"
+                echo ""
+                echo "This function renames all files in the specified directory"
+                echo "by replacing a string with another (default replace spaces with hyphens)"
+                echo ""
+                echo "Options:"
+                echo "  --path=PATH         The path to the directory containing the files to be renamed. Default is current directory \".\""
+                echo "  --search=STRING     The string to search for in file names. Default is a space \" \")."
+                echo "  --replace=STRING    The string to replace the search string with. Default: is a hyphen \"-\")."
+                echo "  --verbose, -v       Show unchanged files. Default: false"
+                echo ""
+                echo "Example:"
+                echo "  renameFiles \"/home/user/documents\"  # Replaces spaces with hyphens in file names"
+                echo "  renameFiles \"/home/user/documents\" \"_\" \"+\"  # Replaces underscores with plus signs"
+                return 0 ;;
+            *) echo "❌ Unknown parameter: $1. Run with --help to see all options"; return 1 ;;
+        esac
+        shift
+    done
+
     echo "Dir : $path, replacing '$search' with '$replace'"
     
+    files_renamed=0
     for file in "$path"/*; do
         new_file="${file//$search/$replace}"
+        if [[ -f "${new_file}" || -d "${new_file}" ]] ; then
+            if [[ "${verbose}" == "true" ]] ; then
+                echo "File ${new_file} already exist, skipping"
+            fi
+            continue
+        fi
         echo "renaming : $file -> $new_file"
         mv "$file" "$new_file"
+        files_renamed=$(($files_renamed + 1))
     done
-    echo -e "--------\ndone"
+    echo "--------"
+    echo "${files_renamed} files renamed"
 }
 
 # Jump into container as /bin/sh
