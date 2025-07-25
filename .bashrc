@@ -716,3 +716,4 @@ eval "$(register-python-argcomplete pipx)"
 export PATH="$PATH:$HOME/.rvm/bin"
 # Created by `pipx` on 2025-06-18 15:57:20
 export PATH="$PATH:/home/lcorrevon/.local/bin"
+export PATH="$PATH:/home/lcorrevon/programmation/perso/bash/"
