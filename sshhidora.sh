@@ -2,7 +2,6 @@
 
 # PARAMETERS
 ENV_FILE_PATH="$(dirname "$0")/sshhidora.env"
-MACHINE_ID_TO_CONTAINER_NAME_CORRESPONDENCE="" # TODO 2D array of id's matching container name
 
 # ENVIRONMENT VARIABLES
 HIDORA_USER_ID=""
@@ -11,8 +10,14 @@ HIDORA_SSH_PORT=""
 
 # GLOBAL VARIABLES
 HIDORA_MACHINE_ID=""
-HIDORA_MACHINE_NAME=" (TODO)"
+HIDORA_MACHINE_NAME=""
+MACHINE_ID_TO_CONTAINER_NAME_CORRESPONDENCE=""
 SSH_PROGRAM=""
+
+# TEXT COLORS
+CYAN='\033[0;36m'
+BG_CYAN='\033[46m'
+RESET='\033[0m'
 
 usage() {
     echo "Usage: $0 HIDORA_MACHINE_ID (Optional) [OPTIONS]"
@@ -44,28 +49,39 @@ checkRequiredPrograms() {
     if [[ ! -z "${SSH_PROGRAM}" ]] ; then
         return 0
     fi
-    echo "[ERROR] sshrc nor ssh are installed. Please install one of them to use this script." >&2
-    echo -e "" >&2 # TODO: Provide installation instructions for sshrc.
+    echo -e "[ERROR] sshrc nor ssh are installed. Please install one of them to use this script." >&2
+    echo -e "" >&2 # TODO: Provide installation instructions for ssh/sshrc.
     exit 1
 }
 
 # Load parameters
 # This function loads the HIDORA_MACHINE_ID from the command line argument or clipboard if not provided.
 loadParameters() {
-    # TODO fix. It works when using "sshhidora.sh MACHINE_ID --help", but not with "sshhidora.sh --help MACHINE_ID"
     while [[ "$#" -gt 0 ]]; do
         case $1 in
-            -h|--help)  usage;;
+            -h|--help)  usage ;;
+            -*)         echo "Unknown option: $1" ; usage ;;
+            *)          HIDORA_MACHINE_ID="$1" ;;
         esac
         shift
     done
 
-    if [[ ! -z "$1" ]]; then
-        HIDORA_MACHINE_ID="$1"
+    if [[ ! -z "${HIDORA_MACHINE_ID}" ]]; then
         return 0
     fi
 
+    # Load clipboard value into HIDORA_MACHINE_ID
     HIDORA_MACHINE_ID=$(xclip -o -selection clipboard)
+
+    # Check if HIDORA_MACHINE_ID is set and is a number
+    if [[ -z "${HIDORA_MACHINE_ID}" ]]; then
+        echo "HIDORA_MACHINE_ID is not set. Please provide it as an argument or copy it to the clipboard."
+        exit 2
+    fi
+    if ! [[ "${HIDORA_MACHINE_ID}" =~ ^[0-9]+$ ]]; then
+        echo "HIDORA_MACHINE_ID must be a number. Please provide a valid ID."
+        exit 2
+    fi
 }
 
 # Loads environment variables from .env file or system env.
@@ -84,30 +100,42 @@ loadEnvironmentVariables() {
     fi
 }
 
-# Check if HIDORA_MACHINE_ID is set and is a number
-checkHidoraMachineId() {
-    if [[ -z "${HIDORA_MACHINE_ID}" ]]; then
-        echo "HIDORA_MACHINE_ID is not set. Please provide it as an argument or copy it to the clipboard."
-        exit 2
+# Find machine name from the correspondence array
+getMachineNameFromId() {
+    # No correspondence table, so no name
+    if [[ -z "${MACHINE_ID_TO_CONTAINER_NAME_CORRESPONDENCE}" ]] ; then
+        return 0
     fi
-    if ! [[ "${HIDORA_MACHINE_ID}" =~ ^[0-9]+$ ]]; then
-        echo "HIDORA_MACHINE_ID must be a number. Please provide a valid ID."
-        exit 2
-    fi
+
+    # Use comma as separator
+    IFS=',' read -ra pairs <<< "${MACHINE_ID_TO_CONTAINER_NAME_CORRESPONDENCE}"
+    
+    for pair in "${pairs[@]}"; do
+        # Use colon as separator
+        IFS=':' read -ra id_name <<< "$pair"
+        local environment_id="${id_name[0]}"
+        local environment_name="${id_name[1]}"
+        local container_name="${id_name[2]}"
+        
+        if [[ "${environment_id}" == "${HIDORA_MACHINE_ID}" ]]; then
+            HIDORA_MACHINE_NAME=" [${BG_CYAN}${environment_name}${RESET}] ${CYAN}${container_name}${RESET}"
+            return
+        fi
+    done
 }
 
 sshToHidora() {
     local ssh_command="${SSH_PROGRAM} ${HIDORA_MACHINE_ID}-${HIDORA_USER_ID}@${HIDORA_SSH_GATE_URL} -p ${HIDORA_SSH_PORT}"
-    echo "Connecting to Hidora machine ID: ${HIDORA_MACHINE_ID}${HIDORA_MACHINE_NAME}"
-    echo "${ssh_command}"
+    echo -e "Connecting to Hidora machine ID: ${CYAN}${HIDORA_MACHINE_ID}${RESET}${HIDORA_MACHINE_NAME}"
+    echo -e "${ssh_command}"
     ${ssh_command}
 }
 
 main() {
     checkRequiredPrograms
-    loadParameters "$1"
+    loadParameters "$@"
     loadEnvironmentVariables
-    checkHidoraMachineId
+    getMachineNameFromId
     sshToHidora
 }
 
