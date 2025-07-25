@@ -16,8 +16,8 @@ HISTCONTROL=ignoreboth
 shopt -s histappend
 
 # for setting history length see HISTSIZE and HISTFILESIZE in bash(1)
-HISTSIZE=1000
-HISTFILESIZE=2000
+HISTSIZE=10000
+HISTFILESIZE=10000
 
 # check the window size after each command and, if necessary,
 # update the values of LINES and COLUMNS.
@@ -430,7 +430,7 @@ renameFiles()
                 echo ""
                 echo "Example:"
                 echo "  renameFiles \"/home/user/documents\"  # Replaces spaces with hyphens in file names"
-                echo "  renameFiles \"/home/user/documents\" \"_\" \"+\"  # Replaces underscores with plus signs"
+                echo "  renameFiles \"/home/user/documents\" \".jpeg\" \".jpg\"  # Replaces .jpeg by .jpg"
                 return 0 ;;
             *) echo "❌ Unknown parameter: $1. Run with --help to see all options"; return 1 ;;
         esac
