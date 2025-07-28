@@ -19,7 +19,7 @@ shopt -s histappend
 HISTSIZE=10000
 HISTFILESIZE=10000
 
-# check the window size after each command and, if necessary,
+# Check the window size after each command and, if necessary,
 # update the values of LINES and COLUMNS.
 shopt -s checkwinsize
 
