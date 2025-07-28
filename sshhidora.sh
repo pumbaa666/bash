@@ -12,6 +12,7 @@ HIDORA_SSH_PORT=""
 HIDORA_MACHINE_ID=""
 HIDORA_MACHINE_NAME=""
 MACHINE_ID_TO_CONTAINER_NAME_CORRESPONDENCE=""
+XCLIP_PROGRAM=""
 SSH_PROGRAM=""
 
 # TEXT COLORS
@@ -33,10 +34,10 @@ usage() {
 
 # Check that xclip and sshrc (or ssh) is installed
 checkRequiredPrograms() {
-    if ! command -v xclip &> /dev/null; then
-        echo "[ERROR] xclip is not installed. Please install it to use this script." >&2
-        echo -e "On Debian/Ubuntu, you can install it with:\n    sudo apt install xclip" >&2
-        exit 1
+    XCLIP_PROGRAM="$(which xclip)"
+    if [[ -z "${XCLIP_PROGRAM}" ]] ; then
+        echo -e "[WARN] xclip is not installed, the programm won't be able to read from clipboard. Use parameters instead"
+        echo -e "On Debian/Ubuntu, you can install it with:\n    sudo apt install xclip"
     fi
 
     SSH_PROGRAM="$(which sshrc)"
@@ -71,11 +72,13 @@ loadParameters() {
     fi
 
     # Load clipboard value into HIDORA_MACHINE_ID
-    HIDORA_MACHINE_ID=$(xclip -o -selection clipboard)
+    if [[ ! -z "${XCLIP_PROGRAM}" ]]; then
+        HIDORA_MACHINE_ID=$(xclip -o -selection clipboard)
+    fi
 
     # Check if HIDORA_MACHINE_ID is set and is a number
     if [[ -z "${HIDORA_MACHINE_ID}" ]]; then
-        echo "HIDORA_MACHINE_ID is not set. Please provide it as an argument or copy it to the clipboard."
+        echo "HIDORA_MACHINE_ID is not set. Please provide it as an argument or copy it to the clipboard (needs xclip)."
         exit 2
     fi
     if ! [[ "${HIDORA_MACHINE_ID}" =~ ^[0-9]+$ ]]; then
