@@ -41,6 +41,8 @@ The scripts rely on the following tools:
 
 To use these scripts from your file manager, you need to create symbolic links to them in the appropriate directory.
 
+Simply run `./integrate-wormhole-to-nautilus.sh` with sudo permission, or follow the next steps :
+
 For **Nautilus** (the default file manager in GNOME), the directory is `~/.local/share/nautilus/scripts/`.
 
 ```bash
