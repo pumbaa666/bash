@@ -27,43 +27,15 @@
 #
 # Author: Loic Correvon
 
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if ! declare -F parse_common_parameters > /dev/null; then
+    source "${SCRIPT_DIR}/wormhole-common.sh" || { echo "Failed to source common.sh script. Aborting."; exit 1; }
+fi
+
 TMP_DIR="/tmp/wormhole/"
 mkdir -p "${TMP_DIR}"
 RESULTS="${TMP_DIR}/wormhole-results_$(uuidgen).txt"
 touch "${RESULTS}"
-
-# Log functions
-function log_debug() {
-    echo -e "[DEBUG] $*"
-}
-
-function log_info() {
-    echo -e "[INFO] $*"
-}
-
-function log_error() {
-    echo -e "[ERROR] $*" >&2
-}
-
-# Check dependencies
-XCLIP_AVAILABLE=true
-ZENITY_AVAILABLE=true
-if ! command -v "wormhole" &> /dev/null; then
-    log_error "Wormhole is not installed. Please install with \`sudo apt install magic-wormhole\` and try again"
-    exit 1
-fi
-
-if ! command -v "zenity" &> /dev/null; then
-    log_info "Zenity is not installed. You can install with \`sudo apt install zenity\` to enable popup messages."
-    log_info "The program still works, but no popup will be shown. Prints the whole \`wormhole receive <OTP>\` and copy them into clipboard."
-    ZENITY_AVAILABLE=false
-fi
-
-if ! command -v "xclip" &> /dev/null; then
-    log_info "Xclip is not installed. You can install with \`sudo apt install xclip\` to enable clipboard support."
-    log_info "The program still works, but no clipboard access will be available. Prints the whole \`wormhole receive <OTP>\` into stdout."
-    XCLIP_AVAILABLE=false
-fi
 
 # Send each file in the background and capture its OTP via a temporary log file
 # Wormhole outputs the OTP to stdout, so we redirect it to a log file for each file.
