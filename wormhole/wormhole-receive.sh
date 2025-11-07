@@ -60,7 +60,7 @@ log_debug "Starting wormhole receive for ${#otp_array[@]} otps."
 for otp in "${otp_array[@]}"; do
 (
     log_info "Receiving with OTP: ${otp}"
-    echo Y | wormhole receive "${otp}"
+    echo "Y" | wormhole receive "${otp}"
 ) &
 done
 
