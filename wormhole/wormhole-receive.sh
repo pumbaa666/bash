@@ -26,10 +26,10 @@ fi
 otps=""
 if [[ "${XCLIP_AVAILABLE}" == "true" ]]; then
     log_debug "Checking clipboard for Wormhole otps."
-    readonly otp_regex="([0-9]\-[a-zA-Z]+\-[a-zA-Z]+)"
+    readonly otp_regex="([0-9]+\-[a-zA-Z]+\-[a-zA-Z]+)"
     clipboard_content=$(xclip -o -selection clipboard 2>/dev/null || echo "")
     while [[ $clipboard_content =~ $otp_regex ]]; do
-        match="${BASH_REMATCH[1]} "
+        match="${BASH_REMATCH[1]} " # Do not forget the last space to separate multiple matches
         match_length=${#match}
         log_debug "  Found OTP in clipboard: ${match}"
         otps+="${match} "
@@ -55,6 +55,13 @@ fi
 
 # Read the otps into an array, splitting by space, tab, or newline
 read -r -a otp_array <<< "${otps}"
+
+# Save files to target directory if provided as argument
+target_dir="$@"
+if [[ -d "${target_dir}" ]]; then
+    log_debug "Changing to target directory: ${target_dir}"
+    cd "${target_dir}"
+fi
 
 log_debug "Starting wormhole receive for ${#otp_array[@]} otps."
 for otp in "${otp_array[@]}"; do
