@@ -28,7 +28,7 @@
 # Author: Loic Correvon
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if ! declare -F parse_common_parameters > /dev/null; then
+if ! declare -F wormhole_common_init > /dev/null; then
     source "${SCRIPT_DIR}/wormhole-common.sh" || { echo "Failed to source common.sh script. Aborting."; exit 1; }
 fi
 

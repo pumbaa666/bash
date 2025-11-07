@@ -2,6 +2,11 @@
 
 # Common functions and variables for wormhole scripts
 
+# Just to check if this script has already been sourced
+function wormhole_common_init() {
+    true
+}
+
 # Log functions
 function log_debug() {
     echo -e "[DEBUG] $*"
