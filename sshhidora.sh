@@ -20,7 +20,7 @@ CYAN='\033[0;36m'
 BG_CYAN='\033[46m'
 RESET='\033[0m'
 
-usage() {
+function usage() {
     echo "Usage: $0 HIDORA_MACHINE_ID (Optional) [OPTIONS]"
     echo ""
     echo "Connect with SSH to an Hidora machine."
@@ -33,7 +33,7 @@ usage() {
 }
 
 # Check that xclip and sshrc (or ssh) is installed
-checkRequiredPrograms() {
+function checkRequiredPrograms() {
     XCLIP_PROGRAM="$(which xclip)"
     if [[ -z "${XCLIP_PROGRAM}" ]] ; then
         echo -e "[WARN] xclip is not installed, the programm won't be able to read from clipboard. Use parameters instead"
@@ -57,7 +57,7 @@ checkRequiredPrograms() {
 
 # Load parameters
 # This function loads the HIDORA_MACHINE_ID from the command line argument or clipboard if not provided.
-loadParameters() {
+function loadParameters() {
     while [[ "$#" -gt 0 ]]; do
         case $1 in
             -h|--help)  usage ;;
@@ -88,7 +88,7 @@ loadParameters() {
 }
 
 # Loads environment variables from .env file or system env.
-loadEnvironmentVariables() {
+function loadEnvironmentVariables() {
     if [ -f "${ENV_FILE_PATH}" ]; then
         set -o allexport
         source "${ENV_FILE_PATH}"
@@ -104,13 +104,14 @@ loadEnvironmentVariables() {
 }
 
 # Find machine name from the correspondence array
-getMachineNameFromId() {
+function getMachineNameFromId() {
     # No correspondence table, so no name
     if [[ -z "${MACHINE_ID_TO_CONTAINER_NAME_CORRESPONDENCE}" ]] ; then
         return 0
     fi
 
     # Use comma as separator
+    local pairs=()
     IFS=',' read -ra pairs <<< "${MACHINE_ID_TO_CONTAINER_NAME_CORRESPONDENCE}"
     
     for pair in "${pairs[@]}"; do
@@ -127,14 +128,14 @@ getMachineNameFromId() {
     done
 }
 
-sshToHidora() {
+function sshToHidora() {
     local ssh_command="${SSH_PROGRAM} ${HIDORA_MACHINE_ID}-${HIDORA_USER_ID}@${HIDORA_SSH_GATE_URL} -p ${HIDORA_SSH_PORT}"
     echo -e "Connecting to Hidora machine ID: ${CYAN}${HIDORA_MACHINE_ID}${RESET}${HIDORA_MACHINE_NAME}"
     echo -e "${ssh_command}"
     ${ssh_command}
 }
 
-main() {
+function main() {
     checkRequiredPrograms
     loadParameters "$@"
     loadEnvironmentVariables
