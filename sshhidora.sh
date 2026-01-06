@@ -9,6 +9,7 @@ HIDORA_SSH_GATE_URL=""
 HIDORA_SSH_PORT=""
 
 # GLOBAL VARIABLES
+ABSTRACT_PARAMETER=""
 HIDORA_MACHINE_ID=""
 HIDORA_MACHINE_NAME=""
 MACHINE_ID_TO_CONTAINER_NAME_CORRESPONDENCE=""
@@ -21,7 +22,7 @@ BG_CYAN='\033[46m'
 RESET='\033[0m'
 
 function usage() {
-    echo "Usage: $0 HIDORA_MACHINE_ID (Optional) [OPTIONS]"
+    echo "Usage: $0 HIDORA_MACHINE_ID | HIDORA environment name, container name, ... [OPTIONS]"
     echo ""
     echo "Connect with SSH to an Hidora machine."
     echo "If no Machine ID is provided as parameters, reads it from the clipboard."
@@ -58,31 +59,30 @@ function checkRequiredPrograms() {
 # Load parameters
 # This function loads the HIDORA_MACHINE_ID from the command line argument or clipboard if not provided.
 function loadParameters() {
-    while [[ "$#" -gt 0 ]]; do
+    if [[ "$#" -eq 1 ]]; then
         case $1 in
             -h|--help)  usage ;;
             -*)         echo "Unknown option: $1" ; usage ;;
-            *)          HIDORA_MACHINE_ID="$1" ;;
+            # ^[0-9]+$)   HIDORA_MACHINE_ID="$1" ;;
         esac
-        shift
-    done
+    fi
 
-    if [[ ! -z "${HIDORA_MACHINE_ID}" ]]; then
+    if [[ "$#" -gt 0 ]]; then
+        ABSTRACT_PARAMETER="$*"
+    fi
+
+    if [[ ! -z "${ABSTRACT_PARAMETER}" ]]; then
         return 0
     fi
 
-    # Load clipboard value into HIDORA_MACHINE_ID
+    # Load clipboard value into ABSTRACT_PARAMETER
     if [[ ! -z "${XCLIP_PROGRAM}" ]]; then
-        HIDORA_MACHINE_ID=$(xclip -o -selection clipboard)
+        ABSTRACT_PARAMETER=$(xclip -o -selection clipboard)
     fi
 
-    # Check if HIDORA_MACHINE_ID is set and is a number
-    if [[ -z "${HIDORA_MACHINE_ID}" ]]; then
-        echo "HIDORA_MACHINE_ID is not set. Please provide it as an argument or copy it to the clipboard (needs xclip)."
-        exit 2
-    fi
-    if ! [[ "${HIDORA_MACHINE_ID}" =~ ^[0-9]+$ ]]; then
-        echo "HIDORA_MACHINE_ID must be a number. Please provide a valid ID."
+    # Check if ABSTRACT_PARAMETER is set and is a number
+    if [[ -z "${ABSTRACT_PARAMETER}" ]]; then
+        echo "Argument is not set. Please provide it or copy it to the clipboard (needs xclip)."
         exit 2
     fi
 }
@@ -99,12 +99,90 @@ function loadEnvironmentVariables() {
 
     if [[ -z "${HIDORA_USER_ID}" || -z "${HIDORA_SSH_GATE_URL}" || -z "${HIDORA_SSH_PORT}" ]] ; then
         echo "[ERROR] HIDORA_USER_ID or HIDORA_SSH_GATE_URL or HIDORA_SSH_PORT is not set. Exiting." >&2
-        exit 1
+        exit 3
     fi
+}
+
+# Find machine ID and name from the correspondence array
+# This function sets HIDORA_MACHINE_ID and HIDORA_MACHINE_NAME based on ABSTRACT_PARAMETER
+# It searches MACHINE_ID_TO_CONTAINER_NAME_CORRESPONDENCE for a matching name or container name.
+# It will take an arbitrary number of arguments (separated by spaces) and refine the matching machines until there is exactly one match.
+function getMachineNameAndIdFromName() {
+    local search_terms=()
+    IFS=' ' read -ra search_terms <<< "${ABSTRACT_PARAMETER}"
+
+    # No correspondence table, cannot find ID from name
+    if [[ -z "${MACHINE_ID_TO_CONTAINER_NAME_CORRESPONDENCE}" ]] ; then
+        echo "[ERROR] No MACHINE_ID_TO_CONTAINER_NAME_CORRESPONDENCE defined, cannot find machine ID from name." >&2
+        exit 4
+    fi
+
+    # Use comma as separator
+    local pairs=()
+    IFS=',' read -ra pairs <<< "${MACHINE_ID_TO_CONTAINER_NAME_CORRESPONDENCE}"
+
+    local matching_machines=()
+
+    # Initial population of matching_machines with all machines
+    for pair in "${pairs[@]}"; do
+        matching_machines+=("$pair")
+    done
+
+    # Refine matching_machines based on search terms
+    local previous_count="${#matching_machines[@]}"
+    local current_count
+    local i=0
+    for term in "${search_terms[@]}"; do
+        local term_lowercase="${term,,}"
+        local refined_matches=()
+        for machine in "${matching_machines[@]}"; do
+            local machine_lowercase="${machine,,}"
+            if [[ "$machine_lowercase" == *"$term_lowercase"* ]]; then
+                refined_matches+=("$machine")
+            fi
+        done
+        matching_machines=("${refined_matches[@]}")
+
+        current_count="${#matching_machines[@]}"
+        if [[ ${current_count} == ${previous_count} ]]; then
+            echo "[ERROR] Multiple machines found matching the provided name/container name. Please refine your search." >&2
+            printf '\t - %s\n' "${matching_machines[@]}" >&2
+            exit 6
+        fi
+
+        if [[ ${current_count} == 1 ]]; then
+            # Found a single match, stop refining
+            break
+        fi
+
+        # echo "[DEBUG] Refinement iteration $i: ${current_count} matching machines (previous: ${previous_count})." >&2
+        previous_count="${current_count}"
+        # printf '\t - %s\n' "${matching_machines[@]}" >&2
+        ((i++))
+    done
+
+    if [[ ${current_count} == 0 ]]; then
+        echo "[ERROR] No machine found matching the provided name/container name." >&2
+        exit 7
+    fi
+    if [[ ${current_count} -gt 1 ]]; then
+        echo "[ERROR] Multiple machines found matching the provided name/container name. Please refine your search." >&2
+        printf '\t - %s\n' "${matching_machines[@]}" >&2
+        exit 8
+    fi
+
+    # Extract HIDORA_MACHINE_ID and HIDORA_MACHINE_NAME from the single match
+    IFS=':' read -ra id_name <<< "${matching_machines[0]}"
+    HIDORA_MACHINE_ID="${id_name[0]}"
+    local environment_name="${id_name[1]}"
+    local container_name="${id_name[2]}"
+    HIDORA_MACHINE_NAME=" [${BG_CYAN}${environment_name}${RESET}] ${CYAN}${container_name}${RESET}"
 }
 
 # Find machine name from the correspondence array
 function getMachineNameFromId() {
+    HIDORA_MACHINE_ID="${ABSTRACT_PARAMETER}"
+
     # No correspondence table, so no name
     if [[ -z "${MACHINE_ID_TO_CONTAINER_NAME_CORRESPONDENCE}" ]] ; then
         return 0
@@ -139,7 +217,13 @@ function main() {
     checkRequiredPrograms
     loadParameters "$@"
     loadEnvironmentVariables
-    getMachineNameFromId
+
+    if [[ "${ABSTRACT_PARAMETER}" =~ ^[0-9]+$ ]]; then
+        getMachineNameFromId
+    else
+        getMachineNameAndIdFromName
+    fi
+
     sshToHidora
 }
 
