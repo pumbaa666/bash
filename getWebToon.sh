@@ -13,7 +13,7 @@ getWebToon()
         wget $url
         lastResult=$?
         echo "getting $url, result is $lastResult"
-        mv $i.$ext $mangaId # TODO move with wget
+        mv "${i}.${ext}" "${mangaId}" # TODO move with wget
         i=$((i+1))
     done
 }
