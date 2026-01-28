@@ -19,6 +19,7 @@ SSH_PROGRAM=""
 # TEXT COLORS
 CYAN='\033[0;36m'
 BG_CYAN='\033[46m'
+GREEN='\033[0;32m'
 RESET='\033[0m'
 
 function usage() {
@@ -115,6 +116,16 @@ function getMachineNameAndIdFromName() {
         HIDORA_MACHINE_NAME=" [${BG_CYAN}${environment_name}${RESET}] ${CYAN}${container_name}${RESET}"
     }
 
+    # Only exit when called from ctrl-c
+    function cleanup() {
+        local exit_type="$1"
+        tput cnorm
+        tput rmcup
+        if [[ "${exit_type}" != "dontexit" ]]; then
+            exit 0
+        fi
+    }
+
     local search_terms=()
     IFS=' ' read -ra search_terms <<< "${ABSTRACT_PARAMETER}"
 
@@ -155,10 +166,9 @@ function getMachineNameAndIdFromName() {
             continue
         fi
 
+        # Found a single match, stop refining
         if [[ ${current_count} == 1 ]]; then
-            # Found a single match, stop refining
             splitIdAndName "${matching_machines[0]}"
-            tput cnorm # Restore cursor
             return 0
         fi
 
@@ -173,22 +183,23 @@ function getMachineNameAndIdFromName() {
 
     local selected=0
     
+    trap cleanup EXIT INT TERM
+    menu_height=$((${#matching_machines[@]} + 1))
+    tput smcup # Enter alternate screen
     tput civis # Hide cursor
-    trap 'tput cnorm; exit' INT # Trap Ctrl+C and restore cursor
 
     while true; do
-        # Clear screen and print menu
-        tput clear
+        tput cup 0 0   # move cursor to top-left
+
         echo "Select the desired machine (UP/DOWN to navigate, ENTER to copy, ESC to quit):"
         for i in "${!matching_machines[@]}"; do
             if [[ $i -eq $selected ]]; then
-                tput setaf 2 # Green
-                echo " > ${matching_machines[$i]}"
-                tput sgr0 # Reset color
+                echo -e "${BG_CYAN} > ${matching_machines[$i]}${RESET}"
             else
                 echo "   ${matching_machines[$i]}"
             fi
         done
+        tput el # clear leftovers if menu shrank
 
         # Read user input
         read -rsn1 key
@@ -202,12 +213,12 @@ function getMachineNameAndIdFromName() {
                     selected=$(( (selected + 1) % ${#matching_machines[@]} ))
                 fi
             else # Escape
-                tput cnorm # Restore cursor
+                cleanup "dontexit"
                 return 1
             fi
         elif [[ "$key" == "" ]]; then # Enter
             splitIdAndName "${matching_machines[$selected]}"
-            tput cnorm # Restore cursor
+            cleanup "dontexit"
             return 0
         fi
     done
