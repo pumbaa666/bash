@@ -27,7 +27,6 @@ function getIps() {
     else
         ifconfig | grep inet | grep -Ev "^addr:[ \t]*$" | awk '{print $2}' | sed 's/addr://g'
     fi
-    
 }
 
 function main() {
