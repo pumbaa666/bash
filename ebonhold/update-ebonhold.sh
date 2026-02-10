@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 # set -euo pipefail
 
-# Constats
-DEBUG=${1:-"false"}
+# Constants
+# TODO get --debug and --help options from other bash scripts
+# Also add a --force option to force download even if file is up to date
+# And --login to force login and get a new token even if the current one is still valid
+# And maybe a --dry-run option to just print what would be done without actually downloading anything
+DEBUG="${DEBUG:-false}"
 
 API_BASE="https://api.project-ebonhold.com/api"
 LOGIN_API="${API_BASE}/auth/login"
@@ -10,15 +14,16 @@ FILES_URL="${API_BASE}/launcher/public-files?type=required"
 DOWNLOAD_API="${API_BASE}/launcher/download?file_ids="
 
 DOWNLOAD_LOCATION="./downloads"
+CACHE_LOCATION="./cache"
 mkdir -p "$DOWNLOAD_LOCATION"
+mkdir -p "$CACHE_LOCATION"
 
 # Format : JSON containing the JWT token and validity info
 # { "token": "<TOKEN>", "valid_until": "2026-01-01T12:00:00Z" }
-TOKEN_FILE="cache/token.json"
-
+TOKEN_FILE="$CACHE_LOCATION/token.json"
 # Format : JSON containing the last patch date info of each file
 # { "Wow.exe": "2026-01-01T12:00:00Z", "Patch-X.mpq": "2026-01-01T12:00:00Z" }
-LAST_PATCH_FILE="cache/last-patch-date.json"
+LAST_PATCH_FILE="$CACHE_LOCATION/last-patch-date.json"
 
 # Load / Check required environment variables
 ACCOUNT_EMAIL="${ACCOUNT_EMAIL:-}"
@@ -26,8 +31,15 @@ ACCOUNT_PASSWORD="${ACCOUNT_PASSWORD:-}"
 if [[ -f ".env" ]]; then
     source .env
 fi
+if [[ -z "$ACCOUNT_EMAIL" ]]; then
+    read -p "Enter your account email: " ACCOUNT_EMAIL
+fi
+if [[ -z "$ACCOUNT_PASSWORD" ]]; then
+    read -s -p "Enter your account password: " ACCOUNT_PASSWORD
+    echo ""
+fi
 if [[ -z "$ACCOUNT_EMAIL" || -z "$ACCOUNT_PASSWORD" ]]; then
-    echo "Error: ACCOUNT_EMAIL and ACCOUNT_PASSWORD environment variables must be set (or defined in .env file)" >&2
+    echo "Error: ACCOUNT_EMAIL and ACCOUNT_PASSWORD must be set (interactively, in environment variables or defined in .env file)" >&2
     exit 1
 fi
 
@@ -60,7 +72,7 @@ function print_array() {
 }
 
 function get_token() {
-    token_response="$(
+    local token_response="$(
     curl -sS \
         -H "Content-Type: application/json" \
         -X POST "$LOGIN_API" \
@@ -68,12 +80,15 @@ function get_token() {
         --arg u "$ACCOUNT_EMAIL" \
         --arg p "$ACCOUNT_PASSWORD" \
         '{username:$u,password:$p}')" \
-    | jq -r '.'
     )"
-    token=$(echo "$token_response" | jq -r '.token')
-    token_expires_in=$(echo "$token_response" | jq -r '.expiresIn') # in seconds
-    token_validity_date=$(date -d "+$token_expires_in seconds" -u +"%Y-%m-%dT%H:%M:%SZ")
-    echo "{\"token\":\"$token\",\"expires_in\":$token_expires_in,\"valid_until\":\"$token_validity_date\"}" > "$TOKEN_FILE"
+    TOKEN=$(echo "$token_response" | jq -r '.token')
+    local token_expires_in=$(echo "$token_response" | jq -r '.expiresIn') # in seconds
+    if [[ ! "$token_expires_in" =~ ^[0-9]+$ ]]; then
+        log_warn "Invalid token expiration time received: $token_expires_in"
+        token_expires_in=3600 # Default to 1 hour if invalid
+    fi
+    local token_validity_date=$(date -d "+$token_expires_in seconds" -u +"%Y-%m-%dT%H:%M:%SZ")
+    echo "{\"token\":\"$TOKEN\",\"expires_in\":$token_expires_in,\"valid_until\":\"$token_validity_date\"}" > "$TOKEN_FILE"
 }
 
 function download_file() {
@@ -107,7 +122,11 @@ function download_file() {
     fi
     local file_path="${DOWNLOAD_LOCATION}/${filename}"
     rm -f "${file_path}"
-    curl -sS -L "$download_url" -o "${file_path}"
+    curl -f -sS -L "$download_url" -o "${file_path}"
+    if [[ $? -ne 0 ]]; then
+        log_warn "Failed to download file '$filename' (ID: $file_id) from URL: $download_url"
+        return 1
+    fi
 }
 
 # Main script logic
@@ -127,6 +146,10 @@ if [[ -f "$TOKEN_FILE" ]]; then
 else
     log_info "No cached token found, logging in..."
     get_token
+fi
+if [[ "$TOKEN" == "null" || -z "$TOKEN" ]]; then
+    log_warn "Login failed: $TOKEN"
+    exit 2
 fi
 
 echo ""
@@ -166,12 +189,16 @@ log_info "4. Download outdated files..."
 declare -A up_to_date_files
 for filename in "${!server_latest_files[@]}"; do
     latest_date="${server_latest_files[$filename]}"
+
     if [[ -z "$latest_date" ]]; then
         log_warn "No latest date found for file '$filename', skipping..."
         continue
     fi
+    latest_date_ts=$(date -d "$latest_date" +%s)
+
     last_patch_date="${local_latest_files[$filename]:-1970-01-01T00:00:00Z}"
-    if [[ "$latest_date" > "$last_patch_date" ]]; then
+    last_patch_date_ts=$(date -d "$last_patch_date" +%s)
+    if (( latest_date_ts > last_patch_date_ts )); then
         log_info "File '$filename' is outdated (latest: $latest_date, last patch: $last_patch_date), downloading..."
         download_file "${name_to_id_map[$filename]}" "$filename"
         if [[ $? -eq 0 ]]; then
