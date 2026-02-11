@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# set -euo pipefail
+set -euo pipefail
 
 # Constants
-# TODO get --debug and --help options from other bash scripts
-# Also add a --force option to force download even if file is up to date
-# And --login to force login and get a new token even if the current one is still valid
-# And maybe a --dry-run option to just print what would be done without actually downloading anything
-DEBUG="${DEBUG:-false}"
+DEBUG=false
+DRY_RUN=false
+FORCE_LOGIN=false
+FORCE_DOWNLOAD=false
 
 API_BASE="https://api.project-ebonhold.com/api"
 LOGIN_API="${API_BASE}/auth/login"
@@ -15,6 +14,7 @@ DOWNLOAD_API="${API_BASE}/launcher/download?file_ids="
 
 DOWNLOAD_LOCATION="./downloads"
 CACHE_LOCATION="./cache"
+GAME_LOCATION="./wow"
 mkdir -p "$DOWNLOAD_LOCATION"
 mkdir -p "$CACHE_LOCATION"
 
@@ -22,15 +22,72 @@ mkdir -p "$CACHE_LOCATION"
 # { "token": "<TOKEN>", "valid_until": "2026-01-01T12:00:00Z" }
 TOKEN_FILE="$CACHE_LOCATION/token.json"
 # Format : JSON containing the last patch date info of each file
-# { "Wow.exe": "2026-01-01T12:00:00Z", "Patch-X.mpq": "2026-01-01T12:00:00Z" }
+# { "Wow.exe": "2026-01-01T12:00:00Z", "Patch-X.mpq": "2026-01-01T12:00:00Z", ... }
 LAST_PATCH_FILE="$CACHE_LOCATION/last-patch-date.json"
 
-# Load / Check required environment variables
-ACCOUNT_EMAIL="${ACCOUNT_EMAIL:-}"
-ACCOUNT_PASSWORD="${ACCOUNT_PASSWORD:-}"
+# Load environment variables from .env file if it exists
 if [[ -f ".env" ]]; then
     source .env
 fi
+
+# Reading order : 1. Command-line arguments 2. Inline Environment variables 3. .env file Environment variables Fallback to Interactive input if not set in any of the previous sources
+ACCOUNT_EMAIL="${ACCOUNT_EMAIL:-}"
+ACCOUNT_PASSWORD="${ACCOUNT_PASSWORD:-}"
+
+# Logging functions
+function log_debug() {
+    if [[ $DEBUG == true ]]; then
+        echo -e "[DEBUG] $1" >&2
+    fi
+}
+
+function log_info() {
+    echo -e "[INFO] $1"
+}
+
+function log_warn() {
+    echo -e "[WARN] $1" >&2
+}
+
+function log_error() {
+    echo -e "[ERROR] $1" >&2
+}
+
+function help() {
+    echo "Update Ebonhold - A script to update Ebonhold game files by downloading the latest versions from the server if they are outdated compared to the last patch date."
+    echo "Usage: $0 [OPTIONS]"
+    echo ""
+    echo "OPTIONS:"
+    echo "  --username=EMAIL       Account email (can also be set via ACCOUNT_EMAIL environment variable or .env file)"
+    echo "  --password=PASSWORD    Account password (can also be set via ACCOUNT_PASSWORD environment variable or .env file)"
+    echo "                         If one of them are not provided, the script will prompt for them interactively"
+    echo "  --login, -l            Force login and refresh token (useful if you want to use a different account or refresh the token manually)"
+    echo "                         Token is located at '$TOKEN_FILE'"
+    echo "  --force, -f            Force download of all files, even if they are up-to-date"
+    echo "                         Files are downloaded to '$DOWNLOAD_LOCATION' and then copied to game directory '$GAME_LOCATION'"
+    echo "  --dry-run, -dr         Don't download or copy any file, just print what would be done"
+    echo "  --debug, -d            Print more debug messages"
+    echo "  --help, -h             Display this help message"
+    echo ""
+    exit 0
+}
+
+# Parse command-line arguments
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --username=*)       ACCOUNT_EMAIL="${1#*=}";;
+        --password=*)       ACCOUNT_PASSWORD="${1#*=}";;
+        -l|--login)         FORCE_LOGIN=true;;
+        -f|--force)         FORCE_DOWNLOAD=true;;
+        -dr|--dry-run)      DRY_RUN=true;;
+        -d|--debug)         DEBUG=true;;
+        -h|--help)          help;;
+        *) echo "Unknown parameter: $1"; help;;
+    esac
+    shift
+done
+
+# Check required credentials and prompt interactively if not set
 if [[ -z "$ACCOUNT_EMAIL" ]]; then
     read -p "Enter your account email: " ACCOUNT_EMAIL
 fi
@@ -44,36 +101,10 @@ if [[ -z "$ACCOUNT_EMAIL" || -z "$ACCOUNT_PASSWORD" ]]; then
 fi
 
 # Helper functions
-function log_info() {
-    echo -e "[INFO] $1"
-}
 
-function log_warn() {
-    echo -e "[WARN] $1" >&2
-}
-
-function log_debug() {
-    [[ "$DEBUG" == "true" ]] && echo -e "[DEBUG] $1" >&2
-}
-
-# For debugging purposes, print the content of an associative array in a readable format
-function print_array() {
-    local key value name;
-    for name in "$@";
-    do
-        echo "${name}";
-        echo "(";
-        eval "for key in \"\${!${name}[@]}\"; do
-                value=\"\${${name}[\$key]}\"
-                echo \"  [\$key] => \\\"\$value\\\"\"
-              done";
-        echo ")";
-    done
-}
-
+# Fetch a new token from the login API and save it to the cache file with its expiration info
 function get_token() {
-    local token_response="$(
-    curl -sS \
+    local token_response="$(curl -sS \
         -H "Content-Type: application/json" \
         -X POST "$LOGIN_API" \
         --data-binary "$(jq -nc \
@@ -91,17 +122,19 @@ function get_token() {
     echo "{\"token\":\"$TOKEN\",\"expires_in\":$token_expires_in,\"valid_until\":\"$token_validity_date\"}" > "$TOKEN_FILE"
 }
 
+# Download a file by its ID and save it to the download location with the correct filename
+# Create directory structure if needed
 function download_file() {
     local file_id="$1"
     local filename="$2"
-    log_info "Downloading file '$filename' (ID: $file_id)..."
+    log_debug "\tFetching file URL for '$filename' (ID: $file_id)..."
     if [[ "$filename" == */* ]]; then
         local dir_path="${filename%/*}"
         mkdir -p "${DOWNLOAD_LOCATION}/${dir_path}"
     fi
 
     local download_response=$(curl -sS -H "Authorization: Bearer $TOKEN" "${DOWNLOAD_API}${file_id}")
-    log_debug "Download raw response for file '$filename' (ID: $file_id): $download_response"
+    log_debug "\tDownload raw response for file '$filename' (ID: $file_id): $download_response"
     # Response format :
     # {
     #     "success": true,
@@ -117,21 +150,45 @@ function download_file() {
     # Really download
     local download_url=$(echo "$download_response" | jq -r '.files[0].url // empty')
     if [[ -z "$download_url" ]]; then
-        log_warn "No download URL found for file '$filename' (ID: $file_id), skipping download..."
+        log_warn "\tNo download URL found for file '$filename' (ID: $file_id), skipping download..."
         return 1
     fi
+
+    if [[ $DRY_RUN == true ]]; then
+        log_info "\tDry run mode: would download file '$filename' (ID: $file_id) from URL: $download_url"
+        return 0
+    fi
+    log_info "\tDownloading file '$filename'..."
     local file_path="${DOWNLOAD_LOCATION}/${filename}"
     rm -f "${file_path}"
     curl -f -sS -L "$download_url" -o "${file_path}"
     if [[ $? -ne 0 ]]; then
-        log_warn "Failed to download file '$filename' (ID: $file_id) from URL: $download_url"
+        log_warn "\tFailed to download file '$filename' (ID: $file_id) from URL: $download_url"
         return 1
     fi
 }
 
+# For debugging purposes, print the content of an associative array in a readable format
+function print_array() {
+    local key value name;
+    for name in "$@";
+    do
+        echo "${name}";
+        echo "(";
+        eval "for key in \"\${!${name}[@]}\"; do
+                value=\"\${${name}[\$key]}\"
+                echo \"  [\$key] => \\\"\$value\\\"\"
+              done";
+        echo ")";
+    done
+}
+
 # Main script logic
 log_info "1. Logging in..."
-if [[ -f "$TOKEN_FILE" ]]; then
+if [[ $FORCE_LOGIN == true || ! -f "$TOKEN_FILE" ]]; then
+    log_info "No cached token found, logging in..."
+    get_token
+else
     log_debug "Cached token found, checking validity..."
     token_data="$(<"$TOKEN_FILE")"
     TOKEN="$(echo "$token_data" | jq -r '.token')"
@@ -143,21 +200,17 @@ if [[ -f "$TOKEN_FILE" ]]; then
     else
         log_debug "Token is still valid, using cached token"
     fi
-else
-    log_info "No cached token found, logging in..."
-    get_token
 fi
 if [[ "$TOKEN" == "null" || -z "$TOKEN" ]]; then
-    log_warn "Login failed: $TOKEN"
+    log_error "Login failed: $TOKEN"
     exit 2
 fi
 
 echo ""
 log_info "2. Fetching required files list..."
 file_list_response=$(curl -sS -H "Authorization: Bearer $TOKEN" "$FILES_URL")
-log_debug "Files:"
-file_list=$(echo "$file_list_response" | jq -r '.files[] | "[\(.id)] \(.name) (updated at: \(.updated_at))"')
-log_debug "$file_list"
+file_list=$(echo "$file_list_response" | jq -r '.files[] | "\t[\(.id)] \(.name) (updated at: \(.updated_at))"')
+log_debug "\n$file_list"
 
 # Maps of filename to last updated date and filename to file ID
 declare -A server_latest_files
@@ -189,6 +242,8 @@ log_info "4. Download outdated files..."
 declare -A up_to_date_files
 for filename in "${!server_latest_files[@]}"; do
     latest_date="${server_latest_files[$filename]}"
+    echo ""
+    log_info "Checking file '$filename' (latest update: $latest_date)..."
 
     if [[ -z "$latest_date" ]]; then
         log_warn "No latest date found for file '$filename', skipping..."
@@ -198,21 +253,26 @@ for filename in "${!server_latest_files[@]}"; do
 
     last_patch_date="${local_latest_files[$filename]:-1970-01-01T00:00:00Z}"
     last_patch_date_ts=$(date -d "$last_patch_date" +%s)
-    if (( latest_date_ts > last_patch_date_ts )); then
-        log_info "File '$filename' is outdated (latest: $latest_date, last patch: $last_patch_date), downloading..."
+    if [[ $FORCE_DOWNLOAD == true || ! -f "$GAME_LOCATION/$filename" || $latest_date_ts -gt $last_patch_date_ts ]]; then
+        log_debug "File '$filename' is outdated (latest: $latest_date, last patch: $last_patch_date), downloading..."
         download_file "${name_to_id_map[$filename]}" "$filename"
         if [[ $? -eq 0 ]]; then
-            log_info "File '$filename' downloaded successfully"
+            log_info "\tSuccess"
             up_to_date_files["$filename"]="$latest_date"
         fi
     else
-        log_debug "File '$filename' is up to date (latest: $latest_date, last patch: $last_patch_date), skipping..."
+        log_debug "\tUp to date"
         up_to_date_files["$filename"]="$latest_date"
     fi
 done
 
 echo ""
 log_info "5. Saving latest file update dates..."
+if [[ $DRY_RUN == true ]]; then
+    log_info "Dry run mode: would save latest file update dates to '$LAST_PATCH_FILE'. Exiting"
+    exit 0
+fi
+
 server_latest_files_json=""
 for filename in "${!up_to_date_files[@]}"; do
     updated_at="${up_to_date_files[$filename]}"
@@ -220,3 +280,18 @@ for filename in "${!up_to_date_files[@]}"; do
 done
 echo "$server_latest_files_json" | jq -s 'reduce .[] as $item ({}; .[$item.name] = $item.updated_at)' > "$LAST_PATCH_FILE"
 log_debug "Updated last patch date file content:\n$(cat "$LAST_PATCH_FILE")"
+
+echo ""
+log_info "6. Copying downloaded files to game directory..."
+for filename in "${!up_to_date_files[@]}"; do
+    if [[ -f "$DOWNLOAD_LOCATION/$filename" ]]; then
+        dest_path="$GAME_LOCATION/$filename"
+        dest_dir=$(dirname "$dest_path")
+        mkdir -p "$dest_dir"
+        cp -f "$DOWNLOAD_LOCATION/$filename" "$dest_path"
+        log_debug "Copied '$filename' to game directory"
+    fi
+done
+
+echo ""
+log_info "Update process completed."
