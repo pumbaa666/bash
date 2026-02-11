@@ -14,7 +14,7 @@ DOWNLOAD_API="${API_BASE}/launcher/download?file_ids="
 
 DOWNLOAD_LOCATION="./downloads"
 CACHE_LOCATION="./cache"
-GAME_LOCATION="./wow"
+GAME_LOCATION=""
 mkdir -p "$DOWNLOAD_LOCATION"
 mkdir -p "$CACHE_LOCATION"
 
@@ -61,6 +61,7 @@ function help() {
     echo "  --username=EMAIL       Account email (can also be set via ACCOUNT_EMAIL environment variable or .env file)"
     echo "  --password=PASSWORD    Account password (can also be set via ACCOUNT_PASSWORD environment variable or .env file)"
     echo "                         If one of them are not provided, the script will prompt for them interactively"
+    echo "  --game-location=PATH   Path to the game directory where files should be copied. If empty : files will only be downloaded to '$DOWNLOAD_LOCATION' but not copied to game directory"
     echo "  --login, -l            Force login and refresh token (useful if you want to use a different account or refresh the token manually)"
     echo "                         Token is located at '$TOKEN_FILE'"
     echo "  --force, -f            Force download of all files, even if they are up-to-date"
@@ -77,6 +78,7 @@ while [[ "$#" -gt 0 ]]; do
     case $1 in
         --username=*)       ACCOUNT_EMAIL="${1#*=}";;
         --password=*)       ACCOUNT_PASSWORD="${1#*=}";;
+        --game-location=*)  GAME_LOCATION="${1#*=}";;
         -l|--login)         FORCE_LOGIN=true;;
         -f|--force)         FORCE_DOWNLOAD=true;;
         -dr|--dry-run)      DRY_RUN=true;;
@@ -282,16 +284,20 @@ echo "$server_latest_files_json" | jq -s 'reduce .[] as $item ({}; .[$item.name]
 log_debug "Updated last patch date file content:\n$(cat "$LAST_PATCH_FILE")"
 
 echo ""
-log_info "6. Copying downloaded files to game directory..."
-for filename in "${!up_to_date_files[@]}"; do
-    if [[ -f "$DOWNLOAD_LOCATION/$filename" ]]; then
-        dest_path="$GAME_LOCATION/$filename"
-        dest_dir=$(dirname "$dest_path")
-        mkdir -p "$dest_dir"
-        cp -f "$DOWNLOAD_LOCATION/$filename" "$dest_path"
-        log_debug "Copied '$filename' to game directory"
-    fi
-done
+if [[ -z "$GAME_LOCATION" ]]; then
+    log_info "No game location specified, skipping copying files to game directory"
+else
+    log_info "6. Copying downloaded files to game directory..."
+    for filename in "${!up_to_date_files[@]}"; do
+        if [[ -f "$DOWNLOAD_LOCATION/$filename" ]]; then
+            dest_path="$GAME_LOCATION/$filename"
+            dest_dir=$(dirname "$dest_path")
+            mkdir -p "$dest_dir"
+            cp -f "$DOWNLOAD_LOCATION/$filename" "$dest_path"
+            log_debug "Copied '$filename' to game directory"
+        fi
+    done
+fi
 
 echo ""
 log_info "Update process completed."
