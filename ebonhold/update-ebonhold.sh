@@ -6,6 +6,7 @@ DEBUG=false
 DRY_RUN=false
 FORCE_LOGIN=false
 FORCE_DOWNLOAD=false
+CLEAR_DOWNLOADS=false
 
 API_BASE="https://api.project-ebonhold.com/api"
 LOGIN_API="${API_BASE}/auth/login"
@@ -25,12 +26,15 @@ TOKEN_FILE="$CACHE_LOCATION/token.json"
 # { "Wow.exe": "2026-01-01T12:00:00Z", "Patch-X.mpq": "2026-01-01T12:00:00Z", ... }
 LAST_PATCH_FILE="$CACHE_LOCATION/last-patch-date.json"
 
-# Load environment variables from .env file if it exists
 if [[ -f ".env" ]]; then
     source .env
 fi
 
-# Reading order : 1. Command-line arguments 2. Inline Environment variables 3. .env file Environment variables Fallback to Interactive input if not set in any of the previous sources
+# Reading order :
+# 1. Command-line arguments
+# 2. Inline Environment variables
+# 3. .env file Environment variables
+# Fallback to Interactive input if not set in any of the previous sources
 ACCOUNT_EMAIL="${ACCOUNT_EMAIL:-}"
 ACCOUNT_PASSWORD="${ACCOUNT_PASSWORD:-}"
 
@@ -54,7 +58,8 @@ function log_error() {
 }
 
 function help() {
-    echo "Update Ebonhold - A script to update Ebonhold game files by downloading the latest versions from the server if they are outdated compared to the last patch date."
+    echo "Update Ebonhold - A script to update WoW Ebonhold game files by downloading the latest versions from the server if they are outdated."
+    echo "Keep last updated dates in cache ('$LAST_PATCH_FILE') to only download files that have been updated since the last patch."
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "OPTIONS:"
@@ -66,6 +71,7 @@ function help() {
     echo "                         Token is located at '$TOKEN_FILE'"
     echo "  --force, -f            Force download of all files, even if they are up-to-date"
     echo "                         Files are downloaded to '$DOWNLOAD_LOCATION' and then copied to game directory '$GAME_LOCATION'"
+    echo "  --clear, -c            Clear the temporary download directory '$DOWNLOAD_LOCATION' after copying files to game directory."
     echo "  --dry-run, -dr         Don't download or copy any file, just print what would be done"
     echo "  --debug, -d            Print more debug messages"
     echo "  --help, -h             Display this help message"
@@ -81,6 +87,7 @@ while [[ "$#" -gt 0 ]]; do
         --game-location=*)  GAME_LOCATION="${1#*=}";;
         -l|--login)         FORCE_LOGIN=true;;
         -f|--force)         FORCE_DOWNLOAD=true;;
+        -c|--clear)         CLEAR_DOWNLOADS=true;;
         -dr|--dry-run)      DRY_RUN=true;;
         -d|--debug)         DEBUG=true;;
         -h|--help)          help;;
@@ -260,7 +267,7 @@ for filename in "${!server_latest_files[@]}"; do
 
     last_patch_date="${local_latest_files[$filename]:-1970-01-01T00:00:00Z}"
     last_patch_date_ts=$(date -d "$last_patch_date" +%s 2>/dev/null) || continue
-    if [[ $FORCE_DOWNLOAD == true ]] || (( latest_date_ts > last_patch_date_ts )) || [[ -n "$GAME_LOCATION" && ! -f "$GAME_LOCATION/$filename" ]]; then
+    if [[ $FORCE_DOWNLOAD == true ]] || [[ -n "$GAME_LOCATION" && ! -f "$GAME_LOCATION/$filename" ]] || (( latest_date_ts > last_patch_date_ts )); then
         log_debug "File '$filename' is outdated (latest: $latest_date, last patch: $last_patch_date), downloading..."
         if download_file "${name_to_id_map[$filename]}" "$filename"; then
             log_info "\tSuccess"
@@ -297,8 +304,13 @@ else
             dest_path="$GAME_LOCATION/$filename"
             dest_dir=$(dirname "$dest_path")
             mkdir -p "$dest_dir"
-            cp -f "$DOWNLOAD_LOCATION/$filename" "$dest_path"
-            log_debug "Copied '$filename' to game directory"
+            if [[ $CLEAR_DOWNLOADS == true ]]; then
+                mv -f "$DOWNLOAD_LOCATION/$filename" "$dest_path"
+                log_debug "Moved '$filename' to game directory"
+            else
+                cp -f "$DOWNLOAD_LOCATION/$filename" "$dest_path"
+                log_debug "Copied '$filename' to game directory"
+            fi
         fi
     done
 fi
