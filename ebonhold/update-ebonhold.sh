@@ -105,6 +105,7 @@ fi
 # Helper functions
 
 # Fetch a new token from the login API and save it to the cache file with its expiration info
+# If it fails, prints the error and returns a non-zero exit code. Safe to exit script after that.
 function get_token() {
     local token_response="$(curl -sS \
         -H "Content-Type: application/json" \
@@ -120,6 +121,11 @@ function get_token() {
         log_warn "Invalid token expiration time received: $token_expires_in"
         token_expires_in=3600 # Default to 1 hour if invalid
     fi
+    if [[ "$TOKEN" == "null" || -z "$TOKEN" ]]; then
+        log_error "Login failed with response: $token_response"
+        return 3
+    fi
+
     local token_validity_date=$(date -d "+$token_expires_in seconds" -u +"%Y-%m-%dT%H:%M:%SZ")
     echo "{\"token\":\"$TOKEN\",\"expires_in\":$token_expires_in,\"valid_until\":\"$token_validity_date\"}" > "$TOKEN_FILE"
 }
@@ -163,8 +169,7 @@ function download_file() {
     log_info "\tDownloading file '$filename'..."
     local file_path="${DOWNLOAD_LOCATION}/${filename}"
     rm -f "${file_path}"
-    curl -f -sS -L "$download_url" -o "${file_path}"
-    if [[ $? -ne 0 ]]; then
+    if ! curl -f -sS -L "$download_url" -o "$file_path"; then
         log_warn "\tFailed to download file '$filename' (ID: $file_id) from URL: $download_url"
         return 1
     fi
@@ -188,8 +193,8 @@ function print_array() {
 # Main script logic
 log_info "1. Logging in..."
 if [[ $FORCE_LOGIN == true || ! -f "$TOKEN_FILE" ]]; then
-    log_info "No cached token found, logging in..."
-    get_token
+    log_info "No cached token found (or force login), logging in..."
+    get_token || exit 2
 else
     log_debug "Cached token found, checking validity..."
     token_data="$(<"$TOKEN_FILE")"
@@ -198,21 +203,21 @@ else
     current_time=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     if [[ "$current_time" > "$token_valid_until" ]]; then
         log_info "Cached token has expired (valid until $token_valid_until), logging in again..."
-        get_token
+        get_token || exit 2
     else
         log_debug "Token is still valid, using cached token"
     fi
-fi
-if [[ "$TOKEN" == "null" || -z "$TOKEN" ]]; then
-    log_error "Login failed: $TOKEN"
-    exit 2
 fi
 
 echo ""
 log_info "2. Fetching required files list..."
 file_list_response=$(curl -sS -H "Authorization: Bearer $TOKEN" "$FILES_URL")
-file_list=$(echo "$file_list_response" | jq -r '.files[] | "\t[\(.id)] \(.name) (updated at: \(.updated_at))"')
-log_debug "\n$file_list"
+file_list=$(echo "$file_list_response" | jq -r '.files[] | "\t[\(.id)] \(.name) (updated at: \(.updated_at))" // empty')
+if [[ -z "$file_list" ]]; then
+    log_warn "No files found in the response. Response content: $file_list_response"
+else
+    log_debug "Files fetched from server:\n$file_list"
+fi
 
 # Maps of filename to last updated date and filename to file ID
 declare -A server_latest_files
@@ -251,14 +256,13 @@ for filename in "${!server_latest_files[@]}"; do
         log_warn "No latest date found for file '$filename', skipping..."
         continue
     fi
-    latest_date_ts=$(date -d "$latest_date" +%s)
+    latest_date_ts=$(date -d "$latest_date" +%s 2>/dev/null) || continue
 
     last_patch_date="${local_latest_files[$filename]:-1970-01-01T00:00:00Z}"
-    last_patch_date_ts=$(date -d "$last_patch_date" +%s)
-    if [[ $FORCE_DOWNLOAD == true || ! -f "$GAME_LOCATION/$filename" || $latest_date_ts -gt $last_patch_date_ts ]]; then
+    last_patch_date_ts=$(date -d "$last_patch_date" +%s 2>/dev/null) || continue
+    if [[ $FORCE_DOWNLOAD == true ]] || (( latest_date_ts > last_patch_date_ts )) || [[ -n "$GAME_LOCATION" && ! -f "$GAME_LOCATION/$filename" ]]; then
         log_debug "File '$filename' is outdated (latest: $latest_date, last patch: $last_patch_date), downloading..."
-        download_file "${name_to_id_map[$filename]}" "$filename"
-        if [[ $? -eq 0 ]]; then
+        if download_file "${name_to_id_map[$filename]}" "$filename"; then
             log_info "\tSuccess"
             up_to_date_files["$filename"]="$latest_date"
         fi
