@@ -12,9 +12,11 @@ rem Check if python is installed
 python --version >nul 2>&1
 if errorlevel 1 (
     echo Error: Python is not installed or not in PATH.
-    echo For Windows 7 : Install Python 3.8.10 from the official website: https://www.python.org/downloads/release/python-3810/
-    echo For Windows 10/11 : Install latest from the official website: https://www.python.org/downloads/
+    echo Run install-python.bat to set up the Python environment and install dependencies or install it manually :
+    echo Install Python 3.8.10 from the official website: https://www.python.org/downloads/release/python-3810/
+    echo Python 3.8.10 is the latest version compatible with Windows 7, but also works on Windows 10/11.
 
+    pause
     exit /b 1
 )
 
@@ -35,5 +37,6 @@ if exist "%GAME_LOCATION%\%GAME_EXECUTABLE%" (
     start "" "%GAME_LOCATION%\%GAME_EXECUTABLE%"
 ) else (
     echo Error: WoW-Ebonhold executable not found. Please check the path and try again.
+    pause
 )
 endlocal
