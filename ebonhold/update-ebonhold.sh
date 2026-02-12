@@ -96,6 +96,10 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
+if [[ "${BASH_VERSINFO:-0}" -lt 4 ]]; then
+    log_warn "This script requires Bash version 4 or higher for associative array support.\nYou are running Bash version ${BASH_VERSION}. Some features may not work correctly." >&2
+fi
+
 # Check required credentials and prompt interactively if not set
 if [[ -z "$ACCOUNT_EMAIL" ]]; then
     read -p "Enter your account email: " ACCOUNT_EMAIL
