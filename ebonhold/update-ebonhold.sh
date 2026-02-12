@@ -1,4 +1,17 @@
 #!/usr/bin/env bash
+
+# Update Ebonhold - A script to update WoW Ebonhold game files by downloading the latest versions from the server if they are outdated.
+# Keep last updated dates in cache ('$LAST_PATCH_FILE') to only download files that have been updated since the last patch.
+#
+# Usage: ./update-ebonhold.sh [OPTIONS]
+#
+# Author: Pumbaa
+# Github: https://github.com/pumbaa666/
+# Website: https://pumbaa.ch
+#
+# License: MIT License
+
+
 set -euo pipefail
 
 # Constants
