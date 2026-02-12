@@ -1,6 +1,11 @@
-@rem Launcher for WoW-Ebonhold.
-@rem It runs the update script and launches the game executable.
 @echo off
+rem Launcher for WoW-Ebonhold.
+rem It runs the update script and launches the game executable.
+rem Author: Pumbaa
+rem Github: https://github.com/pumbaa666/
+rem Website: https://pumbaa.ch
+rem License: MIT License
+
 setlocal
 
 rem Check if python is installed
