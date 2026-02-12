@@ -11,7 +11,6 @@
 #
 # License: MIT License
 
-
 set -euo pipefail
 
 # Constants
@@ -128,7 +127,7 @@ fi
 
 # Helper functions
 
-# Fetch a new token from the login API and save it to the cache file with its expiration info
+# Fetch a new token from the login API and save it to the cache file with its expiration info.
 # If it fails, prints the error and returns a non-zero exit code. Safe to exit script after that.
 function get_token() {
     local token_response="$(curl -sS \
@@ -179,7 +178,6 @@ function download_file() {
     #     ]
     # }
 
-    # Really download
     local download_url=$(echo "$download_response" | jq -r '.files[0].url // empty')
     if [[ -z "$download_url" ]]; then
         log_warn "\tNo download URL found for file '$filename' (ID: $file_id), skipping download..."
@@ -192,7 +190,6 @@ function download_file() {
     fi
     log_info "\tDownloading file '$filename'..."
     local file_path="${DOWNLOAD_LOCATION}/${filename}"
-    rm -f "${file_path}"
     if ! curl -f -sS -L "$download_url" -o "$file_path"; then
         log_warn "\tFailed to download file '$filename' (ID: $file_id) from URL: $download_url"
         return 1
