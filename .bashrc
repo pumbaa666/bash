@@ -778,16 +778,7 @@ function allCrontabs() {
 
 # TODO Déplacer dans profile ?
 function mountNetworkShares() {
-    # TODO .env
-    commun="commun"
-    commun_username="loic"
-    commun_password=""
-    commun_ip="192.168.10.100"
-    tv="tv"
-    tv_username="loic"
-    tv_password=""
-    tv_ip="192.168.10.107"
-    mediaBasePath="/media/${USERNAME}"
+    [[ -f ".bash.env" ]] && source .bash.env
 
     # Check if mount.cifs is installed
     if ! command -v mount.cifs &> /dev/null; then
@@ -797,21 +788,29 @@ function mountNetworkShares() {
     fi
     
     # Mount commun
-    sudo mkdir -p "${mediaBasePath}/${commun}"
-    sudo mount -t cifs //${commun_ip}/Commun "${mediaBasePath}/${commun}" -o username=${commun_username},password=${commun_password},rw,uid=1000,gid=1000
-    echo -e "${commun} mounted at ${mediaBasePath}/${commun}"
-    ls -alh "${mediaBasePath}/${commun}"
+    if [[ -z "${MEDIA_BASE_PATH}" || -z "${COMMON_IP}" || -z "${COMMON_USERNAME}" || -z "${COMMON_PASSWORD}" ]]; then
+        echo "Error: MEDIA_BASE_PATH, COMMON_IP, COMMON_USERNAME or COMMON_PASSWORD environment variables are not set."
+    else
+        sudo mkdir -p "${MEDIA_BASE_PATH}/${COMMON_NAME}"
+        sudo mount -t cifs //${COMMON_IP}/Commun "${MEDIA_BASE_PATH}/${COMMON_NAME}" -o username=${COMMON_USERNAME},password=${COMMON_PASSWORD},rw,uid=1000,gid=1000
+        echo -e "${COMMON_NAME} mounted at ${MEDIA_BASE_PATH}/${COMMON_NAME}"
+        ls -alh "${MEDIA_BASE_PATH}/${COMMON_NAME}"
+    fi
 
     # Mount TV
-    sudo mkdir -p "${mediaBasePath}/${tv}"
-    sudo mount -t cifs //${tv_ip}/TV "${mediaBasePath}/${tv}" -o username="${tv_username}",password="${tv_password}",rw,uid=1000,gid=1000
-    echo -e "\n${tv} mounted at ${mediaBasePath}/${tv}"
-    ls -alh "${mediaBasePath}/${tv}"
-    
+    if [[ -z "${MEDIA_BASE_PATH}" || -z "${TV_IP}" || -z "${TV_USERNAME}" || -z "${TV_PASSWORD}" ]]; then
+        echo "Error: MEDIA_BASE_PATH, TV_IP, TV_USERNAME or TV_PASSWORD environment variables are not set."
+    else
+        sudo mkdir -p "${MEDIA_BASE_PATH}/${TV_NAME}"
+        sudo mount -t cifs //${TV_IP}/TV "${MEDIA_BASE_PATH}/${TV_NAME}" -o username="${TV_USERNAME}",password="${TV_PASSWORD}",rw,uid=1000,gid=1000
+        echo -e "\n${TV_NAME} mounted at ${MEDIA_BASE_PATH}/${TV_NAME}"
+        ls -alh "${MEDIA_BASE_PATH}/${TV_NAME}"
+    fi
+
     # Open file manager
     echo -e "Opening file manager and exiting"
-    nautilus "${mediaBasePath}" &
-    cd "${mediaBasePath}"
+    nautilus "${MEDIA_BASE_PATH}" &
+    cd "${MEDIA_BASE_PATH}"
 }
 
 # syncMyCloud: Synchronizes files from a remote server to the local machine.
@@ -825,14 +824,8 @@ function mountNetworkShares() {
 # Usage:
 #   syncMyCloud
 function syncMyCloud() {
-    # TODO .env
-    scpPort="19992"
-    scpUser="pumbaa"
-    scpServer="pumbaa.ch"
-    distantPath="~/mycloud/"
-    localPath="/home/lcorrevon/mycloud/"
-
-    scp -r -P $scpPort $scpUser@$scpServer:$distantPath $localPath
+    [[ -f ".bash.env" ]] && source .bash.env
+    scp -r -P $VPS_SCP_PORT "$VPS_SCP_USER"@"$VPS_SCP_SERVER":"$VPS_DISTANT_PATH" "$VPS_LOCAL_PATH"
 }
 
 function git_diff() {
