@@ -10,6 +10,9 @@ XCLIP_PATH=""
 # Colors
 RED='\033[0;31m'
 BG_RED='\033[41m'
+CYAN='\033[0;36m'
+BG_CYAN='\033[46m'
+GREEN='\033[0;32m'
 RESET='\033[0m'
 
 checkRequiredPrograms() {
@@ -21,11 +24,21 @@ checkRequiredPrograms() {
 }
 
 function getIps() {
-    local ignoreUseless=${1}
+    local ignoreUseless=${1:-"false"}
     if [[ "${ignoreUseless}" == "true" ]]; then
         ifconfig | grep inet | grep -v "127.0.0.1" | grep -v "::" | grep -Ev "^addr:[ \t]*$" | awk '{print $2}' | sed 's/addr://g'
     else
         ifconfig | grep inet | grep -Ev "^addr:[ \t]*$" | awk '{print $2}' | sed 's/addr://g'
+    fi
+}
+
+# Only exit when called from ctrl-c
+function cleanup() {
+    local exit_type="$1"
+    tput cnorm
+    tput rmcup
+    if [[ "${exit_type}" != "dontexit" ]]; then
+        exit 0
     fi
 }
 
@@ -48,25 +61,24 @@ function main() {
         exit 0
     fi
 
-    # Hide cursor
-    tput civis
-
-    # Trap Ctrl+C and restore cursor
-    trap 'tput cnorm; exit' INT
+    local selected=0
+    
+    trap cleanup INT TERM
+    menu_height=$((${#matching_machines[@]} + 1))
+    tput smcup # Enter alternate screen
+    tput civis # Hide cursor
 
     while true; do
-        # Clear screen and print menu
-        tput clear
+        tput cup 0 0   # move cursor to top-left
         echo "Select an IP address (UP/DOWN to navigate, ENTER to copy, ESC to quit):"
         for i in "${!ips[@]}"; do
             if [[ $i -eq $selected ]]; then
-                tput setaf 2 # Green
-                echo " > ${ips[$i]}"
-                tput sgr0 # Reset color
+                echo -e "${BG_CYAN} > ${ips[$i]}${RESET}"
             else
                 echo "   ${ips[$i]}"
             fi
         done
+        tput el # clear leftovers if menu shrank
 
         # Read user input
         read -rsn1 key
@@ -80,23 +92,20 @@ function main() {
                     selected=$(( (selected + 1) % ${#ips[@]} ))
                 fi
             else # Escape
-                break
+                cleanup "dontexit"
+                return 1
             fi
         elif [[ "$key" == "" ]]; then # Enter
-            tput cnorm # Restore cursor
-            tput clear
+	        cleanup "dontexit"
             if [[ -n "${XCLIP_PATH}" ]]; then
                 echo -n "${ips[$selected]}" | xclip -selection clipboard
-                echo -e "Copied ${RED}${ips[$selected]}${RESET} to clipboard."
+                echo -e "Copied ${CYAN}${ips[$selected]}${RESET} to clipboard."
             else
                 echo -e "${ips[$selected]}"
             fi
-            break
+            return 0
         fi
     done
-
-    # Restore cursor
-    tput cnorm
 }
 
 main "$@"
