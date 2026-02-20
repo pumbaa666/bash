@@ -1,0 +1,68 @@
+SSHRC_HOST_USERNAME="lcorrevon" # Find a way to get this value from the environment variable sent by the client, or from the file name in /tmp/.lcorrevon.sshrc.*/.sshrc.d/.bashrc
+
+# Define some prompt colors
+GREEN='\033[1;32m'
+SUPERGREEN='\033[7;32m'
+RED='\033[1;31m'
+SUPERRED='\033[7;31m'
+BOLD='\033[1m'
+ITALIC='\033[3m'
+NC='\033[0m' # No Color
+
+# Mandatory flex....
+echo -e ""
+echo -e "${GREEN}***********************************${NC}"
+echo -e "${GREEN}* Pumbaa roxx aisément du Poney ! *${NC}"
+echo -e "${GREEN}***********************************${NC}"
+
+# Your local .bashrc file has been sent to the server in "/tmp/.$SSHRC_HOST_USERNAME.$SOMETHING"
+# So we source it from there.
+source /tmp/.$SSHRC_HOST_USERNAME.sshrc.*/.sshrc.d/.bashrc
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to source /tmp/.$SSHRC_HOST_USERNAME.sshrc.*/.sshrc.d/.bashrc"
+    exit 1
+else
+    echo -e "Your custom .bashrc file has been sourced from \"$(echo /tmp/.$SSHRC_HOST_USERNAME.sshrc.*/.sshrc.d/.bashrc)\""
+fi
+
+# # Create a standard home docker config folder
+# # and copy the config file in it
+# # No need for sourcing it, Docker always watch this config file
+# mkdir -p /home/$USER/.docker/
+# if [ $? -ne 0 ]; then
+#     echo "Error: Failed to create directory /home/$USER/.docker/"
+#     exit 1
+# fi
+
+# cp /tmp/.$SSHRC_HOST_USERNAME.sshrc.*/.sshrc.d/docker-config.json /home/$USER/.docker/config.json
+# if [ $? -ne 0 ]; then
+#     echo "Error: Failed to copy /tmp/.$SSHRC_HOST_USERNAME.sshrc.*/.sshrc.d/docker-config.json to /home/$USER/.docker/config.json"
+# #    exit 1
+# else
+#     echo -e "Your custom docker config file has been copied into \"/home/$USER/.docker/config.json\""
+# fi
+
+# # Show some security reports
+# echo -e "\n"
+# echo -e "${RED}/!\\ SECURITY REPORT /!\\ ${NC}"
+# echo -e "${BOLD}LASTLOG${NC}"
+# echo -e "${ITALIC}lastlog -b 1 | grep -iv never${NC}"
+# lastlog -b 1 | grep -iv never
+
+# # echo -e "\n\n * AUTH.LOG : grep sshd /var/log/auth.log"
+# # grep sshd /var/log/auth.log # old way
+
+# # echo -e "\n\n * JOURNALCTL : journalctl -u ssh --since yesterday"
+# # journalctl -u ssh --since yesterday
+
+# # echo -e "\n\n * AUREPORT : aureport"
+# # aureport
+
+# echo -e ""
+# echo -e "${ITALIC}last -aiF | grep -v \$USER${NC}"
+# echo -e "if strange user, run : \"${ITALIC}sudo lastb -adF \$SUSPICIOUS_USER${NC}\""
+# last -aiF | grep -v $USER
+
+# echo -e ""
+# echo -e "${BOLD}JOURNALCTL${NC}"
+# echo -e "run ${ITALIC}\"sudo journalctl _SYSTEMD_UNIT=sshd.service | grep error${NC}\" for more security report"
