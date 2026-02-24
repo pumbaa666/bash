@@ -788,7 +788,7 @@ function mountNetworkShares() {
     fi
     
     # Mount commun
-    if [[ -z "${MEDIA_BASE_PATH}" || -z "${COMMON_IP}" || -z "${COMMON_USERNAME}" || -z "${COMMON_PASSWORD}" ]]; then
+    if [[ -z "${MEDIA_BASE_PATH}" || -z "${COMMON_IP}" || -z "${COMMON_USERNAME}" ]]; then
         echo "Error: MEDIA_BASE_PATH, COMMON_IP, COMMON_USERNAME or COMMON_PASSWORD environment variables are not set."
     else
         sudo mkdir -p "${MEDIA_BASE_PATH}/${COMMON_NAME}"
@@ -798,7 +798,7 @@ function mountNetworkShares() {
     fi
 
     # Mount TV
-    if [[ -z "${MEDIA_BASE_PATH}" || -z "${TV_IP}" || -z "${TV_USERNAME}" || -z "${TV_PASSWORD}" ]]; then
+    if [[ -z "${MEDIA_BASE_PATH}" || -z "${TV_IP}" || -z "${TV_USERNAME}" ]]; then
         echo "Error: MEDIA_BASE_PATH, TV_IP, TV_USERNAME or TV_PASSWORD environment variables are not set."
     else
         sudo mkdir -p "${MEDIA_BASE_PATH}/${TV_NAME}"
