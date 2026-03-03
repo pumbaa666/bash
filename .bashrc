@@ -300,6 +300,7 @@ function mygrep(){
 
 function findDuplicate () {
     local file_name="$1"
+    local show_count="${2:-false}" # If the second parameter is "true", show the count of duplicates, otherwise only the duplicated lines
     if [[ -z "$file_name" ]]; then
         echo "Usage: findDuplicate <file_name>"
         return 1
@@ -308,7 +309,11 @@ function findDuplicate () {
         echo "Error: File '$file_name' does not exist."
         return 1
     fi
-    awk 'NF && $1!~/^(#|HostKey)/{print $1}' "${file_name}" | sort | uniq -c | grep -v ' 1 '
+    if [[ "$show_count" == "true" ]]; then
+        awk 'NF && $1 !~ /^(#|HostKey)/ {c[$1]++} END {for (k in c) if (c[k] > 1) printf "%7d %s\n", c[k], k}' "${file_name}"
+    else
+        awk 'NF && $1 !~ /^(#|HostKey)/ {c[$1]++} END {for (k in c) if (c[k] > 1) print k}' "${file_name}"
+    fi
 }
 
 # Show the size of a folder and its subfolders
