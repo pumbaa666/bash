@@ -109,7 +109,7 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 if [[ "${BASH_VERSINFO:-0}" -lt 4 ]]; then
-    log_warn "This script requires Bash version 4 or higher for associative array support.\nYou are running Bash version ${BASH_VERSION}. Some features may not work correctly." >&2
+    log_warn "This script requires Bash version 4 or higher for associative array support.\nYou are running Bash version ${BASH_VERSION}. Some features may not work correctly."
 fi
 
 # Check required credentials and prompt interactively if not set
@@ -121,7 +121,7 @@ if [[ -z "$ACCOUNT_PASSWORD" ]]; then
     echo ""
 fi
 if [[ -z "$ACCOUNT_EMAIL" || -z "$ACCOUNT_PASSWORD" ]]; then
-    echo "Error: ACCOUNT_EMAIL and ACCOUNT_PASSWORD must be set (interactively, in environment variables or defined in .env file)" >&2
+    log_error "ACCOUNT_EMAIL and ACCOUNT_PASSWORD must be set (interactively, in environment variables or defined in .env file)"
     exit 1
 fi
 
