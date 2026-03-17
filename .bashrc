@@ -111,14 +111,13 @@ if [ "$color_prompt" = yes ]; then
     #PS1='\e[1;35m\u@\h\e[1;32m \w $ \e[0m' #source : http://lehollandaisvolant.net/?d=2014/06/06/15/58/11-gnulinux-ameliorer-le-terminal
 
     # source : http://bashrcgenerator.com ; https://thucnc.medium.com/how-to-show-current-git-branch-with-colors-in-bash-prompt-380d05a24745
-    # Format : [time] user @ host
-    #          current_folder (git_branch)
-    #          $
-    PS1="\n\[\e[33m\][\t] \
-\[\e[34m\]\u\[\e[37m\] @ \H\n\
-\[\e[32m\]\w \
+    # Format : current_folder (git_branch)
+    #          [time] user @ host $
+    PS1="\n\[\e[32m\]\w \
 \[\e[36m\]\$(parse_git_branch)\[\e[0m\]\n\
-\[\e[35m\]\\$ \
+\[\e[33m\][\t] \
+\[\e[34m\]\u\[\e[37m\] @ \H\
+\[\e[35m\] $ \
 \[\e[37m\]\[\e[0m\]"
 else
     PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
