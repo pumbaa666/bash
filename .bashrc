@@ -109,9 +109,19 @@ function parse_git_branch() {
 if [ "$color_prompt" = yes ]; then
     #PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ ' # original
     #PS1='\e[1;35m\u@\h\e[1;32m \w $ \e[0m' #source : http://lehollandaisvolant.net/?d=2014/06/06/15/58/11-gnulinux-ameliorer-le-terminal
-    PS1="\[\e[00;92m\]\u\[\e[0m\]\[\e[00;37m\]@\H \[\e[0m\]\[\e[00;33m\]\t\[\e[0m\]\[\e[00;37m\] \[\e[0m\]\[\e[00;32m\]\w\[\e[0m\]\[\e[00;37m\] \[\e[91m\]\$(parse_git_branch)\[\e[00m\] \[\e[0m\]\[\e[00;35m\]\\$\[\e[0m\]\[\e[00;37m\] \[\e[0m\]" #source : http://bashrcgenerator.com ; https://thucnc.medium.com/how-to-show-current-git-branch-with-colors-in-bash-prompt-380d05a24745
+
+    # source : http://bashrcgenerator.com ; https://thucnc.medium.com/how-to-show-current-git-branch-with-colors-in-bash-prompt-380d05a24745
+    # Format : [time] user @ host
+    #          current_folder (git_branch)
+    #          $
+    PS1="\n\[\e[33m\][\t] \
+\[\e[34m\]\u\[\e[37m\] @ \H\n\
+\[\e[32m\]\w \
+\[\e[36m\]\$(parse_git_branch)\[\e[0m\]\n\
+\[\e[35m\]\\$ \
+\[\e[37m\]\[\e[0m\]"
 else
-    PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ ' # original
+    PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
 fi
 unset color_prompt force_color_prompt
 
@@ -195,6 +205,7 @@ alias rebootToBios='systemctl reboot --firmware-setup'
 alias top10='history | awk '\''{CMD[$2]++;count++;}END { for (a in CMD)print CMD[a] " " CMD[a]/count*100 "% " a;}'\'' | grep -v "./" | column -c3 -s " " -t | sort -nr | nl |  head -n10'
 alias bat='batcat' # https://github.com/sharkdp/bat
 alias ipaddress='~/programmation/perso/bash/ipaddress.sh -i'
+# alias zellij='/etc/zellij'
 
 function myHelp() {
     echo -e "${GREEN}# Aliases${RESET}"
