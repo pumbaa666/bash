@@ -102,8 +102,18 @@ if [ -n "$force_color_prompt" ]; then
     fi
 fi
 
-function parse_git_branch() {
+function PS1_parse_git_branch() {
      git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/(\1)/'
+}
+
+function PS1_hostname() {
+    if [[ -n "${CUSTOM_HOSTNAME}" ]]; then
+        echo "${CUSTOM_HOSTNAME}"
+        return
+    fi
+
+    # echo "${HOSTNAME%%.*}"
+    echo "${HOSTNAME}"
 }
 
 if [ "$color_prompt" = yes ]; then
@@ -114,9 +124,9 @@ if [ "$color_prompt" = yes ]; then
     # Format : current_folder (git_branch)
     #          [time] user @ host $
     PS1="\n\[\e[32m\]\w \
-\[\e[36m\]\$(parse_git_branch)\[\e[0m\]\n\
+\[\e[36m\]\$(PS1_parse_git_branch)\[\e[0m\]\n\
 \[\e[33m\][\t] \
-\[\e[34m\]\u\[\e[37m\] @ \H\
+\[\e[34m\]\u\[\e[37m\] @ \$(PS1_hostname)\
 \[\e[35m\] $ \
 \[\e[37m\]\[\e[0m\]"
 else
