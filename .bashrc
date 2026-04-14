@@ -803,7 +803,7 @@ function allCrontabs() {
 
 # TODO Déplacer dans profile ?
 function mountNetworkShares() {
-    [[ -f ".bash.env" ]] && source .bash.env
+    [[ -f ~/.bash.env ]] && source ~/.bash.env
 
     # Check if mount.cifs is installed
     if ! command -v mount.cifs &> /dev/null; then
@@ -832,6 +832,24 @@ function mountNetworkShares() {
         ls -alh "${MEDIA_BASE_PATH}/${TV_NAME}"
     fi
 
+    # Mount NAS
+    if [[ -z "${MEDIA_BASE_PATH}" || -z "${NAS_IP}" || -z "${NAS_USERNAME}" ]]; then
+        echo "Error: MEDIA_BASE_PATH, NAS_IP, NAS_USERNAME or NAS_PASSWORD environment variables are not set."
+    else
+        # sudo mkdir -p "${MEDIA_BASE_PATH}/${NAS_NAME}"
+        # sudo mount -t cifs //${NAS_IP}/NAS "${MEDIA_BASE_PATH}/${NAS_NAME}" -o username="${NAS_USERNAME}",password="${NAS_PASSWORD}",port=${NAS_PORT},rw,uid=1000,gid=1000
+        # echo -e "\n${NAS_NAME} mounted at ${MEDIA_BASE_PATH}/${NAS_NAME}"
+        # ls -alh "${MEDIA_BASE_PATH}/${NAS_NAME}"
+
+        # correct :
+        sudo mkdir -p "${MEDIA_BASE_PATH}/${NAS_NAME}/A lire"
+        sudo mkdir -p "${MEDIA_BASE_PATH}/${NAS_NAME}/A voir"
+        sudo mkdir -p "${MEDIA_BASE_PATH}/${NAS_NAME}/A écouter"
+        sudo mount -t cifs "//${NAS_IP}/A lire" "${MEDIA_BASE_PATH}/${NAS_NAME}/A lire" -o username="${NAS_USERNAME}",vers=2.0,rw,uid=1000,gid=1000
+        sudo mount -t cifs "//${NAS_IP}/A voir" "${MEDIA_BASE_PATH}/${NAS_NAME}/A voir" -o username="${NAS_USERNAME}",vers=2.0,rw,uid=1000,gid=1000
+        sudo mount -t cifs "//${NAS_IP}/A écouter" "${MEDIA_BASE_PATH}/${NAS_NAME}/A écouter" -o username="${NAS_USERNAME}",vers=2.0,rw,uid=1000,gid=1000
+    fi
+
     # Open file manager
     echo -e "Opening file manager and exiting"
     nautilus "${MEDIA_BASE_PATH}" &
@@ -849,7 +867,7 @@ function mountNetworkShares() {
 # Usage:
 #   syncMyCloud
 function syncMyCloud() {
-    [[ -f ".bash.env" ]] && source .bash.env
+    [[ -f ~/.bash.env ]] && source ~/.bash.env
     scp -r -P $VPS_SCP_PORT "$VPS_SCP_USER"@"$VPS_SCP_SERVER":"$VPS_DISTANT_PATH" "$VPS_LOCAL_PATH"
 }
 
