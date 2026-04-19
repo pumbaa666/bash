@@ -836,20 +836,15 @@ function mountNetworkShares() {
     if [[ -z "${MEDIA_BASE_PATH}" || -z "${NAS_IP}" || -z "${NAS_USERNAME}" ]]; then
         echo "Error: MEDIA_BASE_PATH, NAS_IP, NAS_USERNAME or NAS_PASSWORD environment variables are not set."
     else
-        # sudo mkdir -p "${MEDIA_BASE_PATH}/${NAS_NAME}"
-        # sudo mount -t cifs //${NAS_IP}/NAS "${MEDIA_BASE_PATH}/${NAS_NAME}" -o username="${NAS_USERNAME}",password="${NAS_PASSWORD}",port=${NAS_PORT},rw,uid=1000,gid=1000
-        # echo -e "\n${NAS_NAME} mounted at ${MEDIA_BASE_PATH}/${NAS_NAME}"
-        # ls -alh "${MEDIA_BASE_PATH}/${NAS_NAME}"
-
-        # correct :
         sudo mkdir -p "${MEDIA_BASE_PATH}/${NAS_NAME}/A lire"
         sudo mkdir -p "${MEDIA_BASE_PATH}/${NAS_NAME}/A voir"
         sudo mkdir -p "${MEDIA_BASE_PATH}/${NAS_NAME}/A écouter"
         sudo mkdir -p "${MEDIA_BASE_PATH}/${NAS_NAME}/download"
-        sudo mount -t cifs "//${NAS_IP}/A lire" "${MEDIA_BASE_PATH}/${NAS_NAME}/A lire" -o username="${NAS_USERNAME}",vers=2.0,rw,uid=1000,gid=1000
-        sudo mount -t cifs "//${NAS_IP}/A voir" "${MEDIA_BASE_PATH}/${NAS_NAME}/A voir" -o username="${NAS_USERNAME}",vers=2.0,rw,uid=1000,gid=1000
-        sudo mount -t cifs "//${NAS_IP}/A écouter" "${MEDIA_BASE_PATH}/${NAS_NAME}/A écouter" -o username="${NAS_USERNAME}",vers=2.0,rw,uid=1000,gid=1000
-        sudo mount -t cifs "//${NAS_IP}/download" "${MEDIA_BASE_PATH}/${NAS_NAME}/download" -o username="${NAS_USERNAME}",vers=2.0,rw,uid=1000,gid=1000
+
+        sudo mount -t cifs "//${NAS_IP}/A lire" "${MEDIA_BASE_PATH}/${NAS_NAME}/A lire" -o username="${NAS_USERNAME}",password="${NAS_PASSWORD}",vers=2.0,rw,uid=1000,gid=1000
+        sudo mount -t cifs "//${NAS_IP}/A voir" "${MEDIA_BASE_PATH}/${NAS_NAME}/A voir" -o username="${NAS_USERNAME}",password="${NAS_PASSWORD}",vers=2.0,rw,uid=1000,gid=1000
+        sudo mount -t cifs "//${NAS_IP}/A écouter" "${MEDIA_BASE_PATH}/${NAS_NAME}/A écouter" -o username="${NAS_USERNAME}",password="${NAS_PASSWORD}",vers=2.0,rw,uid=1000,gid=1000
+        sudo mount -t cifs "//${NAS_IP}/download" "${MEDIA_BASE_PATH}/${NAS_NAME}/download" -o username="${NAS_USERNAME}",password="${NAS_PASSWORD}",vers=2.0,rw,uid=1000,gid=1000
     fi
 
     # Open file manager
