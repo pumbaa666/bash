@@ -258,6 +258,8 @@ function myHelp() {
     echo -e "\t${BOLD_YELLOW}dcsh(${YELLOW}${ITALIC}container_name${BOLD_YELLOW})${RESET}"
     echo -e "${BOLD_YELLOW}dockerlogs(${YELLOW}${ITALIC}container_name${RESET}${BOLD_YELLOW})${RESET}\tPrints container logs"
     echo -e "\t${BOLD_YELLOW}dclogs(${YELLOW}${ITALIC}container_name${BOLD_YELLOW})${RESET}"
+    echo -e "${BOLD_YELLOW}dockerclean${RESET}\t\t\tCleans up exited containers"
+    echo -e "\t${BOLD_YELLOW}dcclean${RESET}"
     echo -e ""
 
     echo -e "${GREEN}# Git${RESET}"
@@ -754,6 +756,13 @@ function dockerlogs() {
 }
 function dclogs() {
     dockerlogs $1
+}
+function dockerclean() {
+    # Or just docker container prune, but I prefer to see which containers are removed
+    docker ps -a -q -f status=exited | xargs -r docker rm
+}
+function dcclean() {
+    dockerclean
 }
 
 # Prints the OS users in a nice array
