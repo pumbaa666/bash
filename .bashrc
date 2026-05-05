@@ -825,44 +825,39 @@ function mountNetworkShares() {
     if [[ -z "${MEDIA_BASE_PATH}" || -z "${COMMON_IP}" || -z "${COMMON_USERNAME}" ]]; then
         echo "Error: MEDIA_BASE_PATH, COMMON_IP, COMMON_USERNAME or COMMON_PASSWORD environment variables are not set."
     else
+        echo "Mounting ${COMMON_NAME}, please wait..."
         sudo mkdir -p "${MEDIA_BASE_PATH}/${COMMON_NAME}"
         sudo mount -t cifs //${COMMON_IP}/Commun "${MEDIA_BASE_PATH}/${COMMON_NAME}" -o username=${COMMON_USERNAME},password=${COMMON_PASSWORD},rw,uid=1000,gid=1000
-        echo -e "${COMMON_NAME} mounted at ${MEDIA_BASE_PATH}/${COMMON_NAME}"
-        ls -alh "${MEDIA_BASE_PATH}/${COMMON_NAME}"
-    fi
-
-    # Mount TV
-    if [[ -z "${MEDIA_BASE_PATH}" || -z "${TV_IP}" || -z "${TV_USERNAME}" ]]; then
-        echo "Error: MEDIA_BASE_PATH, TV_IP, TV_USERNAME or TV_PASSWORD environment variables are not set."
-    else
-        sudo mkdir -p "${MEDIA_BASE_PATH}/${TV_NAME}"
-        sudo mount -t cifs //${TV_IP}/TV "${MEDIA_BASE_PATH}/${TV_NAME}" -o username="${TV_USERNAME}",password="${TV_PASSWORD}",rw,uid=1000,gid=1000
-        echo -e "\n${TV_NAME} mounted at ${MEDIA_BASE_PATH}/${TV_NAME}"
-        ls -alh "${MEDIA_BASE_PATH}/${TV_NAME}"
+        if [[ $? -ne 0 ]]; then
+            echo "Error mounting ${COMMON_NAME}. Please check your credentials and network connection."
+            return 1
+        fi
+        echo -e " - '${COMMON_NAME}' mounted at '${MEDIA_BASE_PATH}/${COMMON_NAME}'"
     fi
 
     # Mount NAS
     if [[ -z "${MEDIA_BASE_PATH}" || -z "${NAS_IP}" || -z "${NAS_USERNAME}" ]]; then
         echo "Error: MEDIA_BASE_PATH, NAS_IP, NAS_USERNAME or NAS_PASSWORD environment variables are not set."
     else
-        # sudo mkdir -p "${MEDIA_BASE_PATH}/${NAS_NAME}"
-        # sudo mount -t cifs //${NAS_IP}/NAS "${MEDIA_BASE_PATH}/${NAS_NAME}" -o username="${NAS_USERNAME}",password="${NAS_PASSWORD}",port=${NAS_PORT},rw,uid=1000,gid=1000
-        # echo -e "\n${NAS_NAME} mounted at ${MEDIA_BASE_PATH}/${NAS_NAME}"
-        # ls -alh "${MEDIA_BASE_PATH}/${NAS_NAME}"
-
-        # correct :
-        sudo mkdir -p "${MEDIA_BASE_PATH}/${NAS_NAME}/A lire"
-        sudo mkdir -p "${MEDIA_BASE_PATH}/${NAS_NAME}/A voir"
-        sudo mkdir -p "${MEDIA_BASE_PATH}/${NAS_NAME}/A écouter"
-        sudo mount -t cifs "//${NAS_IP}/A lire" "${MEDIA_BASE_PATH}/${NAS_NAME}/A lire" -o username="${NAS_USERNAME}",vers=2.0,rw,uid=1000,gid=1000
-        sudo mount -t cifs "//${NAS_IP}/A voir" "${MEDIA_BASE_PATH}/${NAS_NAME}/A voir" -o username="${NAS_USERNAME}",vers=2.0,rw,uid=1000,gid=1000
-        sudo mount -t cifs "//${NAS_IP}/A écouter" "${MEDIA_BASE_PATH}/${NAS_NAME}/A écouter" -o username="${NAS_USERNAME}",vers=2.0,rw,uid=1000,gid=1000
+        echo ""
+        echo "Mounting ${NAS_NAME}, please wait..."
+        for subdir in "A lire" "A voir" "A écouter" "download"; do
+            sudo mkdir -p "${MEDIA_BASE_PATH}/${NAS_NAME}/${subdir}"
+            sudo mount -t cifs "//${NAS_IP}/${subdir}" "${MEDIA_BASE_PATH}/${NAS_NAME}/${subdir}" -o username="${NAS_USERNAME},password=${NAS_PASSWORD}",vers=2.0,rw,uid=1000,gid=1000
+            if [[ $? -ne 0 ]]; then
+                echo "Error mounting ${NAS_NAME}/${subdir}. Please check your credentials and network connection."
+                continue
+            fi
+            echo -e " - '${subdir}' mounted at '${MEDIA_BASE_PATH}/${NAS_NAME}/${subdir}'"
+        done
     fi
 
     # Open file manager
-    echo -e "Opening file manager and exiting"
+    echo ""
+    echo "Opening file manager and exiting"
     nautilus "${MEDIA_BASE_PATH}" &
     cd "${MEDIA_BASE_PATH}"
+    ls -alh
 }
 
 # syncMyCloud: Synchronizes files from a remote server to the local machine.
