@@ -270,15 +270,13 @@ function main() {
         exit 2
     fi
     
+    # If the parameter is a number, we consider it as an ID and try to find the name from the correspondence table.
     if [[ "${ABSTRACT_PARAMETER}" =~ ^[0-9]+$ ]]; then
-        getMachineNameFromId
+        getMachineNameFromId # Do not exit on error, name is not mandatory when providing ID
     else
-        getMachineNameAndIdFromName
+        getMachineNameAndIdFromName || exit $?
     fi
-
-    if [[ $? -ne 0 ]]; then
-        exit $?
-    fi
+    
     sshToHidora
 }
 
