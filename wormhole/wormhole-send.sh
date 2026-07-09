@@ -77,11 +77,12 @@ if [[ ! -s "${RESULTS}" ]]; then
 fi
 
 if [[ "${ZENITY_AVAILABLE}" == "true" ]]; then
+    popup_text="The following files are being sent via Wormhole:\n\n$(cat "${RESULTS}")\n\nYou can copy the keywords to communicate to the recipient or the process ID's (PID) to clipboard."
     response=$(
         zenity --question \
         --title="Wormhole" \
         --width=600 \
-        --text="$(cat "${RESULTS}")" \
+        --text="${popup_text}" \
         --ok-label="Copy commands" \
         --extra-button="Copy OTPs" \
         --extra-button="Copy PIDs" \
