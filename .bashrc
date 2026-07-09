@@ -744,8 +744,9 @@ function convertWebpToJpg() {
 
 # Jump into container as /bin/sh
 function dockersh() {
-    docker cp ~/.bashrc $1:/home/ || true
-    docker exec -it $1 /bin/bash || docker exec -it $1 /bin/sh
+    docker cp -L ~/.bashrc $1:/home/ || true
+    docker exec -it $1 /bin/bash -c "echo 'Custom bashrc available at /home/.bashrc'; exec /bin/bash" || \
+    docker exec -it $1 /bin/sh -c "No /bin/bash available, using sh instead; echo 'Custom bashrc available at /home/.bashrc'; exec /bin/sh"
 }
 function dcsh() {
     dockersh $1
