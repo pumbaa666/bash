@@ -214,6 +214,8 @@ alias rebootToBios='systemctl reboot --firmware-setup'
 alias top10='history | awk '\''{CMD[$2]++;count++;}END { for (a in CMD)print CMD[a] " " CMD[a]/count*100 "% " a;}'\'' | grep -v "./" | column -c3 -s " " -t | sort -nr | nl |  head -n10'
 alias bat='batcat' # https://github.com/sharkdp/bat
 alias ipaddress='~/programmation/perso/bash/ipaddress.sh -i'
+alias wine='cd ~/Games/GEProtonPortable/ && ./explorer.sh && cd -'
+alias game='wine'
 # alias zellij='/etc/zellij'
 
 function myHelp() {
