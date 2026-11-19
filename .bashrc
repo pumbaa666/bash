@@ -171,6 +171,10 @@ if [ -f ~/.bash_aliases ]; then
     . ~/.bash_aliases
 fi
 
+if [ -f ~/.profile ]; then
+    . ~/.profile
+fi
+
 # enable programmable completion features (you don't need to enable
 # this, if it's already enabled in /etc/bash.bashrc and /etc/profile
 # sources /etc/bash.bashrc).
@@ -214,7 +218,7 @@ alias rebootToBios='systemctl reboot --firmware-setup'
 alias top10='history | awk '\''{CMD[$2]++;count++;}END { for (a in CMD)print CMD[a] " " CMD[a]/count*100 "% " a;}'\'' | grep -v "./" | column -c3 -s " " -t | sort -nr | nl |  head -n10'
 alias bat='batcat' # https://github.com/sharkdp/bat
 alias ipaddress='~/programmation/perso/bash/ipaddress.sh -i'
-# alias zellij='/etc/zellij'
+alias refund='{ nautilus -s ~/Documents/refund.ods & }; open ~/Documents/refund.ods'
 
 function myHelp() {
     echo -e "${GREEN}# Aliases${RESET}"
