@@ -12,6 +12,7 @@ VPN_CONF="/etc/openvpn/client/client.conf"
 LOG="/tmp/${VPN_NAME}.log"
 OPENVPN_PID_FILE="/tmp/${VPN_NAME}.openvpn.pid"
 YAD_PID_FILE="/tmp/${VPN_NAME}.yad.pid"
+PIPE=""
 
 function log_debug() {
     echo "[DEBUG] $1" >&2
@@ -52,7 +53,7 @@ function sudo_check() {
     if [[ $? -ne 0 ]]; then
         log_debug "User has not recently run sudo, will ask for password"
         log_debug "Asking for sudo password to launch OpenVPN"
-        local password=$(yad --hide-text --text-align=center --title="OpenVPN" --text="Enter your password to connect to OpenVPN" --entry --entry-label=Label --entry-text="")
+        local password=$(yad --hide-text --text-align=center --title="OpenVPN" --text="Enter your SUDO password to connect to OpenVPN" --entry --entry-label=Label --entry-text="")
         
         if [[ -z "$password" ]]; then
             log_debug "No password entered, aborting connection"
@@ -81,7 +82,7 @@ function is_running() {
 function set_icon() {
     return
 
-    echo "icon:$1" > "$PIPE"
+    echo "icon:$1" > "$PIPE" # TODO debug ?
 }
 
 function disconnect() {
@@ -131,6 +132,7 @@ function connect() {
         ((i++))
         if [[ $i -gt $max_tries ]]; then
             notify-send "OpenVPN" "Connection timed out"
+            sudo cat "$LOG"
             disconnect
             return
         fi
@@ -162,40 +164,52 @@ function status() {
 }
 
 function quit() {
+    log_debug "quit"
     disconnect
-    if [[ ! -f "$YAD_PID_FILE" ]]; then
-        log_debug "No YAD PID file found, nothing to kill"
-        return
+
+    if [[ -f "$YAD_PID_FILE" ]]; then
+        kill "$(cat "$YAD_PID_FILE")" 2>/dev/null
     fi
-    yad_pid="$(cat "$YAD_PID_FILE")"
-    log_debug "Killing YAD process with PID $yad_pid"
-    rm -f "$YAD_PID_FILE" # YAD tmp file is created with user permissions, so we can remove it without sudo
-    kill "$yad_pid" 2>/dev/null
 }
 
-function tray(){
+function clean_tmp_files() {
+    log_debug "Cleaning resources"
+
+    exec 3>&- 2>/dev/null
+    exec 3<&- 2>/dev/null
+
+    [[ -p "$PIPE" ]] && rm -f "$PIPE"
+    rm -f "$YAD_PID_FILE"
+}
+
+function tray() {
     if is_running "$YAD_PID_FILE"; then
         log_debug "Tray already running"
-        exit
+        exit 0
     fi
 
-    log_debug "Add OpenVPN to systray with yad"
-
-    # Controle pipe file for communication between YAD and the script.
-    # Will be used to update icon
     PIPE="/tmp/${VPN_NAME}.yad.pipe"
-    mkfifo "$PIPE"
+    rm -f "$PIPE"
+    mkfifo "$PIPE" || {
+        log_error "Cannot create Pipe file '${PIPE}'"
+        exit 4
+    }
 
-    yad \
-    --notification \
-    --image=network-vpn \
-    --text="OpenVPN" \
-    --menu="Status!$0 status|Connect!$0 connect|Disconnect!$0 disconnect|Logs!$0 show_logs|Quit!$0 quit" \
-    < "$PIPE" &
+    exec 3<> "$PIPE"
+    log_debug "FIFO pipe opened on FD 3 '$PIPE'"
 
-    yad_pid=$!
-    echo $yad_pid > $YAD_PID_FILE
-    log_debug "YAD PID: $yad_pid saved in $YAD_PID_FILE"
+    trap clean_tmp_files EXIT INT TERM
+
+    # On Wayland, add `GDK_BACKEND=x11` before yad. It's still a bit broken, but shows something at least.
+    GDK_BACKEND=x11 yad \
+        --notification \
+        --image=network-vpn \
+        --text="OpenVPN" \
+        --menu="Status!$0 status|Connect!$0 connect|Disconnect!$0 disconnect|Logs!$0 show_logs|Quit!$0 quit" \
+        <&3 &
+
+    echo "$!" > "$YAD_PID_FILE"
+    wait "$!"
 }
 
 check_program_is_installed "yad" "openvpn" "notify-send"
