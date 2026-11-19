@@ -219,6 +219,8 @@ alias top10='history | awk '\''{CMD[$2]++;count++;}END { for (a in CMD)print CMD
 alias bat='batcat' # https://github.com/sharkdp/bat
 alias ipaddress='~/programmation/perso/bash/ipaddress.sh -i'
 alias refund='{ nautilus -s ~/Documents/refund.ods & }; open ~/Documents/refund.ods'
+alias wine='cd ~/Games/GEProtonPortable/ && ./explorer.sh && cd -'
+alias game='wine'
 
 function myHelp() {
     echo -e "${GREEN}# Aliases${RESET}"
